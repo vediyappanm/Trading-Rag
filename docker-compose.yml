@@ -3,7 +3,7 @@ services:
     build: .
     container_name: trading-rag-app
     ports:
-      - "8000:8000"
+      - "8123:8000"
     env_file:
       - .env
     restart: always

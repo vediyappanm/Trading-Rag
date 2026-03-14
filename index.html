@@ -552,7 +552,7 @@
 
             try {
                 // Using V2 endpoint for richer metadata
-                const response = await fetch('http://localhost:8000/ask/stream', {
+                const response = await fetch('/ask/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ query: query })
