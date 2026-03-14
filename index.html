@@ -421,13 +421,60 @@
         /* Thinking Bubble Style */
         .thinking-bubble {
             display: flex;
-            align-items: center;
+            flex-direction: column;
             gap: 12px;
             color: var(--primary);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             background: rgba(0, 242, 255, 0.05) !important;
             border-color: rgba(0, 242, 255, 0.2) !important;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .thinking-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .thinking-step {
+            opacity: 0.4;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+
+        .thinking-step.active {
+            opacity: 1;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .thinking-step.completed {
+            opacity: 0.8;
+            color: var(--success);
+        }
+
+        .step-num {
+            font-size: 0.7rem;
+            background: rgba(255,255,255,0.1);
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
         }
 
         .thinking-icon {
@@ -543,12 +590,47 @@
             thinkingRow.id = 'thinking-msg';
             thinkingRow.innerHTML = `
                 <div class="msg-bubble bot-bubble thinking-bubble">
-                    <div class="thinking-icon"></div>
-                    <span>ANALYZING TRADING DATA...</span>
+                    <div class="thinking-header">
+                        <div class="thinking-icon"></div>
+                        <span>QUANT-RAG PIPELINE ACTIVE</span>
+                    </div>
+                    <div class="thinking-steps">
+                        <div class="thinking-step active" id="step-1">
+                            <span class="step-num">1</span>
+                            <span>Orchestration & Intent Analysis</span>
+                        </div>
+                        <div class="thinking-step" id="step-2">
+                            <span class="step-num">2</span>
+                            <span>Security Validation (ESQLGuard)</span>
+                        </div>
+                        <div class="thinking-step" id="step-3">
+                            <span class="step-num">3</span>
+                            <span>Multi-Source Evidence Retrieval</span>
+                        </div>
+                        <div class="thinking-step" id="step-4">
+                            <span class="step-num">4</span>
+                            <span>Cross-Agent Context Synthesis</span>
+                        </div>
+                        <div class="thinking-step" id="step-5">
+                            <span class="step-num">5</span>
+                            <span>Groundedness & Accuracy Verification</span>
+                        </div>
+                    </div>
                 </div>
             `;
             chatScroller.appendChild(thinkingRow);
             chatScroller.scrollTop = chatScroller.scrollHeight;
+
+            const updateStep = (id, status) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                // Move current active to completed
+                document.querySelectorAll('.thinking-step.active').forEach(s => {
+                    s.classList.remove('active');
+                    s.classList.add('completed');
+                });
+                el.classList.add('active');
+            };
 
             try {
                 // Using V2 endpoint for richer metadata
@@ -582,19 +664,19 @@
                             // Pipeline status updates
                             if (data.router_output) {
                                 statusText.innerText = 'ANALYZING INTENT...';
-                                thinkingRow.querySelector('span').innerText = 'ROUTING QUERY...';
+                                updateStep('step-2');
                             }
                             else if (data.evidence) {
                                 statusText.innerText = `FETCHING ${data.evidence.path}...`;
-                                thinkingRow.querySelector('span').innerText = 'RETRIEVING FROM ELK...';
+                                updateStep('step-3');
                             }
                             else if (data.analysis) {
                                 statusText.innerText = 'GENERATING INSIGHTS...';
-                                thinkingRow.querySelector('span').innerText = 'AI SYNTHESIZING...';
+                                updateStep('step-4');
                             }
                             else if (data.evaluation) {
                                 statusText.innerText = 'VERIFYING ACCURACY...';
-                                thinkingRow.querySelector('span').innerText = 'CHECKING GROUNDEDNESS...';
+                                updateStep('step-5');
                             }
 
                             if (data.final_response || data.type === 'cache_hit') {
