@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading RAG | Advanced Quant Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #05070a;
+            --surface: #0d1117;
+            --surface-accent: #161b22;
+            --primary: #00f2ff;
+            --primary-glow: rgba(0, 242, 255, 0.3);
+            --secondary: #7000ff;
+            --text-main: #e6edf3;
+            --text-dim: #8b949e;
+            --success: #238636;
+            --warning: #d29922;
+            --error: #f85149;
+            --border: rgba(255, 255, 255, 0.08);
+            --glass: rgba(13, 17, 23, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(112, 0, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(0, 242, 255, 0.05) 0%, transparent 40%);
+        }
+
+        /* Technical Grid Overlay */
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            mask-image: radial-gradient(circle at center, black, transparent 80%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .terminal-container {
+            width: 95%;
+            max-width: 1100px;
+            height: 90vh;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+        }
+
+        /* Top Header */
+        header {
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .brand-icon::after {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            background: inherit;
+            filter: blur(8px);
+            opacity: 0.4;
+            z-index: -1;
+        }
+
+        .brand h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            text-transform: uppercase;
+        }
+
+        .brand span {
+            color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            margin-left: 8px;
+            background: rgba(0, 242, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .system-stats {
+            display: flex;
+            gap: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stat-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        /* Main Workspace */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #chat-scroller {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        #chat-scroller::-webkit-scrollbar { width: 5px; }
+        #chat-scroller::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        /* Welcome Screen / Suggestions */
+        .welcome-screen {
+            max-width: 700px;
+            margin: 40px auto;
+            text-align: center;
+        }
+
+        .welcome-screen h1 {
+            font-size: 2.2rem;
+            margin-bottom: 12px;
+            background: linear-gradient(to right, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-screen p {
+            color: var(--text-dim);
+            margin-bottom: 30px;
+        }
+
+        .suggestion-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .suggestion-card {
+            background: var(--surface-accent);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 14px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .suggestion-card:hover {
+            border-color: var(--primary);
+            background: rgba(0, 242, 255, 0.03);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(0, 242, 255, 0.2);
+        }
+
+        .suggestion-card h4 {
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        .suggestion-card p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .suggestion-card .icon {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            opacity: 0.1;
+            transition: opacity 0.3s;
+        }
+
+        .suggestion-card:hover .icon {
+            opacity: 0.5;
+        }
+
+        /* Messages */
+        .msg-row {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 25px;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-bubble {
+            max-width: 85%;
+            padding: 16px 20px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .user-row { align-items: flex-end; }
+        .user-bubble {
+            background: linear-gradient(135deg, var(--secondary), #4a00aa);
+            color: white;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 10px 20px -5px rgba(112, 0, 255, 0.3);
+        }
+
+        .bot-row { align-items: flex-start; }
+        .bot-bubble {
+            background: var(--surface-accent);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Metadata & Stats */
+        .response-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+        }
+
+        .meta-tag {
+            background: rgba(255,255,255,0.05);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-tag.confidence-high { color: var(--success); border-color: rgba(35, 134, 54, 0.4); }
+        .meta-tag.confidence-medium { color: var(--warning); border-color: rgba(210, 153, 34, 0.4); }
+        .meta-tag.confidence-low { color: var(--error); border-color: rgba(248, 81, 73, 0.4); }
+
+        .citation-list {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .citation-chip {
+            font-size: 0.65rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: var(--primary);
+            cursor: pointer;
+        }
+
+        .citation-chip:hover { border-color: var(--primary); }
+
+        /* Input Area */
+        .terminal-input-bar {
+            padding: 25px 30px;
+            border-top: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            gap: 15px;
+            position: relative;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        #query-input {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            color: white;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+
+        #query-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px -5px var(--primary-glow);
+        }
+
+        #submit-btn {
+            background: var(--primary);
+            color: var(--bg);
+            border: none;
+            border-radius: 12px;
+            padding: 0 28px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px var(--primary-glow);
+            background: white;
+        }
+
+        #submit-btn:active { transform: translateY(0); }
+
+        /* Loading States */
+        .progress-overlay {
+            position: absolute;
+            bottom: 100%;
+            left: 30px;
+            right: 30px;
+            background: var(--surface-accent);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            padding: 10px 20px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--primary);
+        }
+
+        .loader-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .loader-dots div {
+            width: 4px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .loader-dots div:nth-child(1) { animation-delay: -0.32s; }
+        .loader-dots div:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* Thinking Bubble Style */
+        .thinking-bubble {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            background: rgba(0, 242, 255, 0.05) !important;
+            border-color: rgba(0, 242, 255, 0.2) !important;
+        }
+
+        .thinking-icon {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--primary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="terminal-container">
+        <header>
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+                </div>
+                <h2>Adv-Trading <span>RAG-V2.5</span></h2>
+            </div>
+            <div class="system-stats">
+                <div class="stat-item"><div class="stat-dot"></div> ELK Core: Online</div>
+                <div class="stat-item">Redis: Active</div>
+                <div class="stat-item">Model: Groq-Llama3</div>
+            </div>
+        </header>
+
+        <main>
+            <div id="chat-scroller">
+                <!-- Welcome Screen -->
+                <div class="welcome-screen" id="welcome-area">
+                    <h1>Smarter Trading Intelligence</h1>
+                    <p>Connect to your VPS logs and perform advanced analysis with sub-second retrieval.</p>
+                    
+                    <div class="suggestion-grid">
+                        <div class="suggestion-card" onclick="runSuggested('What is the average latency for NVDA in the last 4 hours?')">
+                            <div class="icon">📈</div>
+                            <h4>Performance Audit</h4>
+                            <p>Average latency and volume analysis for any ticker.</p>
+                        </div>
+                        <div class="suggestion-card" onclick="runSuggested('Compare the error rate of AAPL vs TSLA over the last day.')">
+                            <div class="icon">⚖️</div>
+                            <h4>Symbol Comparison</h4>
+                            <p>Side-by-side metric comparison across your trading universe.</p>
+                        </div>
+                        <div class="suggestion-card" onclick="runSuggested('Was there any latency spike for NVDA? Show p95 and outliers.')">
+                            <div class="icon">⚡</div>
+                            <h4>Spike Detection</h4>
+                            <p>Deep dive into tails and execution anomalies.</p>
+                        </div>
+                        <div class="suggestion-card" onclick="runSuggested('Were there any reported connectivity incidents for TSLA recently?')">
+                            <div class="icon">🕵️</div>
+                            <h4>Root Cause Analysis</h4>
+                            <p>Correlate technical logs with semantic incident reports.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="progress-overlay" id="loading-overlay">
+                <div id="status-text">INITIATING PIPELINE...</div>
+                <div class="loader-dots"><div></div><div></div><div></div></div>
+            </div>
+
+            <div class="terminal-input-bar">
+                <div class="input-wrapper">
+                    <input type="text" id="query-input" placeholder="Ask about executions, latency, or system incidents..." autocomplete="off">
+                </div>
+                <button id="submit-btn">
+                    Execute
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const chatScroller = document.getElementById('chat-scroller');
+        const queryInput = document.getElementById('query-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const statusText = document.getElementById('status-text');
+        const welcomeArea = document.getElementById('welcome-area');
+
+        function runSuggested(text) {
+            queryInput.value = text;
+            handleSubmit();
+        }
+
+        async function handleSubmit() {
+            const query = queryInput.value.trim();
+            if (!query) return;
+
+            // Hide welcome on first query
+            if (welcomeArea) welcomeArea.style.display = 'none';
+
+            addMessage(query, 'user');
+            queryInput.value = '';
+            
+            loadingOverlay.style.display = 'flex';
+            statusText.innerText = 'WAITING FOR ROUTER...';
+
+            // Add Thinking Bubble
+            const thinkingRow = document.createElement('div');
+            thinkingRow.className = 'msg-row bot-row';
+            thinkingRow.id = 'thinking-msg';
+            thinkingRow.innerHTML = `
+                <div class="msg-bubble bot-bubble thinking-bubble">
+                    <div class="thinking-icon"></div>
+                    <span>ANALYZING TRADING DATA...</span>
+                </div>
+            `;
+            chatScroller.appendChild(thinkingRow);
+            chatScroller.scrollTop = chatScroller.scrollHeight;
+
+            try {
+                // Using V2 endpoint for richer metadata
+                const response = await fetch('http://localhost:8000/ask/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            // Pipeline status updates
+                            if (data.router_output) {
+                                statusText.innerText = 'ANALYZING INTENT...';
+                                thinkingRow.querySelector('span').innerText = 'ROUTING QUERY...';
+                            }
+                            else if (data.evidence) {
+                                statusText.innerText = `FETCHING ${data.evidence.path}...`;
+                                thinkingRow.querySelector('span').innerText = 'RETRIEVING FROM ELK...';
+                            }
+                            else if (data.analysis) {
+                                statusText.innerText = 'GENERATING INSIGHTS...';
+                                thinkingRow.querySelector('span').innerText = 'AI SYNTHESIZING...';
+                            }
+                            else if (data.evaluation) {
+                                statusText.innerText = 'VERIFYING ACCURACY...';
+                                thinkingRow.querySelector('span').innerText = 'CHECKING GROUNDEDNESS...';
+                            }
+
+                            if (data.final_response || data.type === 'cache_hit') {
+                                const final = data.final_response || data;
+                                loadingOverlay.style.display = 'none';
+                                if (document.getElementById('thinking-msg')) {
+                                    document.getElementById('thinking-msg').remove();
+                                }
+                                addResponse(final);
+                                return;
+                            }
+
+                            if (data.error) throw new Error(data.error);
+                        }
+                    }
+                }
+            } catch (err) {
+                loadingOverlay.style.display = 'none';
+                if (document.getElementById('thinking-msg')) {
+                    document.getElementById('thinking-msg').remove();
+                }
+                addMessage("PIPELINE ERROR: " + err.message, 'bot', { error: true });
+            }
+        }
+
+        function addMessage(text, side, options = {}) {
+            const row = document.createElement('div');
+            row.className = `msg-row ${side}-row`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = `msg-bubble ${side}-bubble`;
+            if (options.error) bubble.style.borderColor = 'var(--error)';
+            bubble.innerText = text;
+            
+            row.appendChild(bubble);
+            chatScroller.appendChild(row);
+            chatScroller.scrollTop = chatScroller.scrollHeight;
+        }
+
+        function addResponse(res) {
+            const row = document.createElement('div');
+            row.className = 'msg-row bot-row';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble bot-bubble';
+            
+            // Main text
+            const textContent = document.createElement('div');
+            textContent.innerText = res.answer;
+            bubble.appendChild(textContent);
+
+            // Metadata bar
+            const metaBar = document.createElement('div');
+            metaBar.className = 'response-meta';
+            
+            const conf = res.confidence || 'MEDIUM';
+            metaBar.innerHTML = `
+                <div class="meta-tag confidence-${conf.toLowerCase()}">
+                    <span>${conf} CONFIDENCE</span>
+                </div>
+                <div class="meta-tag">
+                    🕒 ${res.processing_time_ms || res.latency_ms || 0}MS
+                </div>
+                <div class="meta-tag">
+                    💰 $${res.cost_usd?.toFixed(5) || '0.00' }
+                </div>
+                <div class="meta-tag">
+                    🔋 ${res.data_freshness || 'LIVE'}
+                </div>
+                <div class="meta-tag">
+                    🎯 G:${res.groundedness_score?.toFixed(2) || '1.0'}
+                </div>
+            `;
+            bubble.appendChild(metaBar);
+
+            // Citations
+            if (res.citations && res.citations.length > 0) {
+                const citeList = document.createElement('div');
+                citeList.className = 'citation-list';
+                res.citations.forEach(c => {
+                    const chip = document.createElement('div');
+                    chip.className = 'citation-chip';
+                    chip.innerText = typeof c === 'string' ? "LOG:" + c.slice(-8) : "LOG:" + (c.log_id || '').slice(-8);
+                    citeList.appendChild(chip);
+                });
+                bubble.appendChild(citeList);
+            }
+
+            row.appendChild(bubble);
+            chatScroller.appendChild(row);
+            chatScroller.scrollTop = chatScroller.scrollHeight;
+        }
+
+        submitBtn.addEventListener('click', handleSubmit);
+        queryInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSubmit(); });
+    </script>
+</body>
+</html>
