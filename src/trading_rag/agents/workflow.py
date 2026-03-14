@@ -552,7 +552,11 @@ async def astream_workflow(question: str):
             # Cleanly serialize Pydantic objects to dicts for JSON safety
             serializable_update = {}
             if isinstance(state_update, dict):
+                # Optimization: UI doesn't need full logs in every update
+                SKIP_FIELDS = {"evidence", "baseline"}
                 for k, v in state_update.items():
+                    if k in SKIP_FIELDS:
+                        continue
                     if hasattr(v, "model_dump"):
                         serializable_update[k] = v.model_dump()
                     elif isinstance(v, list):
