@@ -560,17 +560,24 @@
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+                let buffer = '';
                 
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
                     
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    
+                    // Keep the last partial line in the buffer
+                    buffer = lines.pop();
                     
                     for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const data = JSON.parse(line.slice(6));
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue;
+                        
+                        try {
+                            const data = JSON.parse(trimmedLine.slice(6));
                             
                             // Pipeline status updates
                             if (data.router_output) {
@@ -601,6 +608,8 @@
                             }
 
                             if (data.error) throw new Error(data.error);
+                        } catch (e) {
+                            console.error("JSON Parse Error on line:", trimmedLine, e);
                         }
                     }
                 }
