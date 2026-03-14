@@ -609,7 +609,15 @@
 
                             if (data.error) throw new Error(data.error);
                         } catch (e) {
-                            console.error("JSON Parse Error on line:", trimmedLine, e);
+                            console.error("JSON Parse Error Details:", {
+                                error: e,
+                                lineLength: trimmedLine.length,
+                                snippet: trimmedLine.substring(0, 100) + "..." + trimmedLine.substring(trimmedLine.length - 100)
+                            });
+                            // If it's a critical error (like a truncated final response), show it
+                            if (trimmedLine.length > 1000) {
+                                throw new Error("Stream data corruption. Please retry your query.");
+                            }
                         }
                     }
                 }
