@@ -3,1171 +3,542 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QuantSight | NSE Trading Intelligence Terminal</title>
+  <title>QuantSight</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:           #020810;
-      --surface:      #060f18;
-      --card:         #091624;
-      --card-hover:   #0c1d30;
-      --primary:      #00d4b8;
-      --primary-dim:  rgba(0,212,184,0.10);
-      --primary-glow: rgba(0,212,184,0.30);
-      --buy:          #00e676;
-      --buy-dim:      rgba(0,230,118,0.10);
-      --sell:         #ff4069;
-      --sell-dim:     rgba(255,64,105,0.10);
-      --amber:        #ffcc00;
-      --amber-dim:    rgba(255,204,0,0.10);
-      --purple:       #8b5cf6;
-      --purple-dim:   rgba(139,92,246,0.10);
-      --text:         #b8d4e4;
-      --text-bright:  #ddeef8;
-      --text-dim:     #3d6278;
-      --border:       rgba(0,212,184,0.09);
-      --border-md:    rgba(0,212,184,0.20);
-      --font-h:       'Barlow Condensed', sans-serif;
-      --font-m:       'IBM Plex Mono', monospace;
-      --font-b:       'Barlow', sans-serif;
+      --bg:          #0d0d0d;
+      --surface:     #171717;
+      --surface-2:   #1f1f1f;
+      --border:      #2a2a2a;
+      --border-light:#333;
+      --text:        #e5e5e5;
+      --text-dim:    #737373;
+      --text-faint:  #404040;
+      --accent:      #e07b39;
+      --accent-dim:  rgba(224,123,57,0.12);
+      --user-bg:     #1f1f1f;
+      --bot-bg:      transparent;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); }
 
     body {
-      font-family: var(--font-b);
-      background: var(--bg);
-      color: var(--text);
+      font-family: 'Inter', -apple-system, sans-serif;
       display: flex;
       flex-direction: column;
-      background-image:
-        radial-gradient(ellipse 70% 50% at 15% -10%, rgba(0,212,184,0.035) 0%, transparent 65%),
-        radial-gradient(ellipse 60% 40% at 85% 110%, rgba(139,92,246,0.035) 0%, transparent 60%);
+      height: 100vh;
+      overflow: hidden;
     }
 
-    /* ===================== HEADER ===================== */
+    /* ── HEADER ── */
     header {
-      height: 52px;
-      min-height: 52px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 18px;
-      background: rgba(6,15,24,0.96);
+      padding: 0 24px;
+      height: 56px;
       border-bottom: 1px solid var(--border);
-      z-index: 100;
+      background: var(--bg);
+      flex-shrink: 0;
     }
 
-    .logo {
+    .brand {
       display: flex;
       align-items: center;
       gap: 10px;
     }
-    .logo-icon {
-      width: 30px; height: 30px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--purple) 100%);
-      border-radius: 7px;
+    .brand-icon {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 14px var(--primary-glow);
     }
-    .logo-name {
-      font-family: var(--font-h);
-      font-size: 1.25rem;
-      font-weight: 900;
-      letter-spacing: 0.06em;
-      color: var(--text-bright);
-    }
-    .logo-badge {
-      font-family: var(--font-m);
-      font-size: 0.58rem;
-      background: var(--primary-dim);
-      border: 1px solid var(--border-md);
-      color: var(--primary);
-      padding: 2px 7px;
-      border-radius: 4px;
-      letter-spacing: 0.06em;
-    }
-
-    .header-mid {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-    }
-    .market-clock {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
-    }
-    #live-clock {
-      font-family: var(--font-m);
-      font-size: 1rem;
+    .brand-name {
+      font-size: 0.95rem;
       font-weight: 600;
-      color: var(--amber);
-      letter-spacing: 0.1em;
+      letter-spacing: 0.01em;
+      color: var(--text);
     }
-    .clock-label {
-      font-family: var(--font-m);
-      font-size: 0.52rem;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .market-session {
-      font-family: var(--font-m);
-      font-size: 0.62rem;
-      padding: 3px 10px;
-      border-radius: 4px;
-      letter-spacing: 0.05em;
-    }
-    .market-session.open  { background: var(--buy-dim);  border: 1px solid rgba(0,230,118,0.25); color: var(--buy); }
-    .market-session.close { background: var(--sell-dim); border: 1px solid rgba(255,64,105,0.25); color: var(--sell); }
-    .market-session.pre   { background: var(--amber-dim);border: 1px solid rgba(255,204,0,0.25); color: var(--amber); }
 
     .header-right {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 16px;
     }
-    .h-stat {
-      font-family: var(--font-m);
-      font-size: 0.6rem;
-      padding: 3px 9px;
-      border-radius: 4px;
-      border: 1px solid;
+    .status-dot {
       display: flex;
       align-items: center;
-      gap: 5px;
-      cursor: default;
-    }
-    .h-stat.ok   { border-color: rgba(0,230,118,0.28); background: rgba(0,230,118,0.06); color: var(--buy); }
-    .h-stat.warn { border-color: rgba(255,204,0,0.28);  background: rgba(255,204,0,0.06);  color: var(--amber); }
-    .h-stat.err  { border-color: rgba(255,64,105,0.28); background: rgba(255,64,105,0.06); color: var(--sell); }
-    .h-dot {
-      width: 5px; height: 5px;
-      border-radius: 50%;
-      background: currentColor;
-      box-shadow: 0 0 5px currentColor;
-      animation: dot-pulse 2s ease-in-out infinite;
-    }
-    @keyframes dot-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-    .data-badge {
-      font-family: var(--font-m);
-      font-size: 0.6rem;
-      padding: 3px 9px;
-      border-radius: 4px;
-      background: var(--primary-dim);
-      border: 1px solid var(--border-md);
-      color: var(--primary);
-    }
-
-    /* ===================== CONTENT LAYOUT ===================== */
-    .content {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
-
-    /* ===================== CHAT PANEL ===================== */
-    .chat-panel {
-      width: 38%;
-      min-width: 300px;
-      max-width: 480px;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--border);
-      background: linear-gradient(180deg, #060f18 0%, #040b12 100%);
-    }
-
-    .chat-panel-hdr {
-      padding: 9px 14px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: rgba(4,11,18,0.7);
-    }
-    .chat-panel-title {
-      font-family: var(--font-m);
-      font-size: 0.62rem;
-      color: var(--primary);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-    .model-pill {
-      font-family: var(--font-m);
-      font-size: 0.56rem;
-      padding: 2px 7px;
-      border-radius: 3px;
-      background: var(--primary-dim);
-      border: 1px solid var(--border);
+      gap: 6px;
+      font-size: 0.72rem;
       color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
     }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 6px #4ade80;
+    }
+    .dot.offline { background: #f87171; box-shadow: 0 0 6px #f87171; }
 
-    #chat-scroller {
+    /* ── MAIN CHAT AREA ── */
+    .chat-wrap {
       flex: 1;
       overflow-y: auto;
-      padding: 14px;
       scroll-behavior: smooth;
     }
-    #chat-scroller::-webkit-scrollbar { width: 3px; }
-    #chat-scroller::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .chat-wrap::-webkit-scrollbar { width: 4px; }
+    .chat-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-    /* Welcome */
-    .welcome-state { padding: 8px 0 20px; }
-    .welcome-state h3 {
-      font-family: var(--font-h);
-      font-size: 1.55rem;
-      font-weight: 800;
-      color: var(--text-bright);
-      margin-bottom: 4px;
+    .chat-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 24px 16px;
     }
-    .welcome-state .w-sub {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-      margin-bottom: 18px;
-      line-height: 1.5;
-    }
-    .suggestion-grid { display: flex; flex-direction: column; gap: 7px; }
-    .sug-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 11px 13px;
-      cursor: pointer;
-      transition: all 0.18s;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-    }
-    .sug-card:hover {
-      border-color: var(--primary);
-      background: var(--primary-dim);
-      transform: translateX(3px);
-    }
-    .sug-card .sug-ico { font-size: 0.95rem; flex-shrink: 0; margin-top: 1px; }
-    .sug-card h4 {
-      font-family: var(--font-h);
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--text-bright);
-      margin-bottom: 2px;
-    }
-    .sug-card p { font-size: 0.72rem; color: var(--text-dim); line-height: 1.4; }
 
-    /* Messages */
-    .msg-row {
+    /* ── WELCOME ── */
+    .welcome {
       display: flex;
       flex-direction: column;
-      margin-bottom: 16px;
-      animation: msg-in 0.28s ease-out;
+      align-items: center;
+      text-align: center;
+      padding: 48px 0 40px;
     }
-    @keyframes msg-in { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
-
-    .msg-bubble {
-      padding: 10px 13px;
-      border-radius: 11px;
-      font-size: 0.875rem;
-      line-height: 1.58;
-      max-width: 92%;
+    .welcome-logo {
+      width: 48px; height: 48px;
+      background: var(--accent);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
     }
-    .user-row { align-items: flex-end; }
-    .user-bubble {
-      background: linear-gradient(135deg, #1a0a3a 0%, #0e0525 100%);
-      border: 1px solid rgba(139,92,246,0.32);
-      border-bottom-right-radius: 3px;
-      color: #c8b8f4;
-    }
-    .bot-row { align-items: flex-start; }
-    .bot-bubble {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-bottom-left-radius: 3px;
+    .welcome h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
       color: var(--text);
+      margin-bottom: 8px;
     }
-    .bot-bubble.err { border-color: rgba(255,64,105,0.4); color: var(--sell); }
+    .welcome p {
+      font-size: 0.875rem;
+      color: var(--text-dim);
+      max-width: 440px;
+      line-height: 1.6;
+      margin-bottom: 36px;
+    }
 
-    .resp-meta {
+    .suggestions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+      max-width: 580px;
+    }
+    .sug {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .sug:hover {
+      border-color: var(--border-light);
+      background: var(--surface-2);
+    }
+    .sug-title {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .sug-desc {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    /* ── MESSAGES ── */
+    .msg {
+      display: flex;
+      gap: 14px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadein 0.2s ease;
+    }
+    .msg:last-child { border-bottom: none; }
+    @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+    .msg-avatar {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .msg-avatar.user {
+      background: #2563eb;
+      color: white;
+    }
+    .msg-avatar.bot {
+      background: var(--accent);
+      color: white;
+    }
+
+    .msg-body { flex: 1; min-width: 0; }
+    .msg-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .msg-text {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg-text.error { color: #f87171; }
+
+    /* metadata row */
+    .msg-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .chip.green { color: #4ade80; border-color: rgba(74,222,128,0.2); background: rgba(74,222,128,0.06); }
+    .chip.yellow { color: #fbbf24; border-color: rgba(251,191,36,0.2); background: rgba(251,191,36,0.06); }
+    .chip.red { color: #f87171; border-color: rgba(248,113,113,0.2); background: rgba(248,113,113,0.06); }
+
+    .citations {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
-      margin-top: 9px;
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
+      margin-top: 8px;
     }
-    .m-chip {
-      font-family: var(--font-m);
-      font-size: 0.58rem;
-      padding: 2px 6px;
+    .cit {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem;
+      padding: 1px 6px;
       border-radius: 3px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.02);
-      color: var(--text-dim);
-    }
-    .m-chip.hi  { color: var(--buy);   border-color: rgba(0,230,118,0.22); }
-    .m-chip.med { color: var(--amber); border-color: rgba(255,204,0,0.22); }
-    .m-chip.lo  { color: var(--sell);  border-color: rgba(255,64,105,0.22); }
-
-    .cit-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
-    .cit-chip {
-      font-family: var(--font-m);
-      font-size: 0.56rem;
-      padding: 1px 5px;
-      border-radius: 3px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--primary);
+      background: rgba(224,123,57,0.08);
+      border: 1px solid rgba(224,123,57,0.2);
+      color: var(--accent);
     }
 
-    /* Thinking bubble */
-    .think-bubble {
-      background: rgba(0,212,184,0.04) !important;
-      border-color: rgba(0,212,184,0.18) !important;
-      width: 100%;
-      max-width: none !important;
-      padding: 13px 15px !important;
+    /* ── THINKING ── */
+    .thinking-body { display: flex; flex-direction: column; gap: 8px; }
+    .think-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-faint);
+      transition: color 0.2s;
     }
-    .think-hdr {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      margin-bottom: 11px;
-      font-family: var(--font-m);
-      font-size: 0.68rem;
-      font-weight: 600;
-      color: var(--primary);
-      letter-spacing: 0.08em;
-    }
-    .spin-ring {
-      width: 13px; height: 13px;
-      border: 2px solid var(--primary);
+    .think-row.active { color: var(--text); }
+    .think-row.done   { color: #4ade80; }
+    .think-row.active .think-icon { animation: spin 0.7s linear infinite; }
+    .think-icon {
+      width: 14px; height: 14px;
+      border: 1.5px solid currentColor;
       border-top-color: transparent;
       border-radius: 50%;
-      animation: spin 0.65s linear infinite;
       flex-shrink: 0;
     }
-    @keyframes spin { to{transform:rotate(360deg)} }
-    .pipe-log { display: flex; flex-direction: column; gap: 5px; }
-    .pipe-line {
-      display: flex; align-items: center; gap: 8px;
-      opacity: 0.32;
-      font-family: var(--font-m);
-      font-size: 0.67rem;
-      transition: all 0.25s;
-    }
-    .pipe-line.active { opacity: 1; color: var(--text-bright); }
-    .pipe-line.done   { opacity: 0.7; color: var(--buy); }
-    .pipe-num {
-      font-size: 0.55rem;
-      background: rgba(255,255,255,0.07);
-      width: 15px; height: 15px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 3px; flex-shrink: 0;
-    }
-    .pipe-line.done .pipe-num { background: rgba(0,230,118,0.18); color: var(--buy); }
+    .think-row.done .think-icon { animation: none; border: none; }
+    .think-row.done .think-icon::after { content: '✓'; font-size: 0.7rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Chat input */
-    .chat-input-wrap {
-      padding: 10px 12px;
+    /* ── INPUT ── */
+    .input-zone {
+      flex-shrink: 0;
       border-top: 1px solid var(--border);
-      background: rgba(4,11,18,0.85);
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
-    #query-input {
-      flex: 1;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 9px 13px;
-      color: var(--text-bright);
-      font-family: var(--font-b);
-      font-size: 0.875rem;
-      outline: none;
-      resize: none;
-      min-height: 40px;
-      max-height: 90px;
-      line-height: 1.42;
-      transition: border-color 0.18s, box-shadow 0.18s;
-      overflow-y: auto;
-    }
-    #query-input::placeholder { color: var(--text-dim); }
-    #query-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0,212,184,0.07); }
-    #submit-btn {
-      background: var(--primary);
-      color: #020810;
-      border: none;
-      border-radius: 9px;
-      width: 40px; height: 40px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: all 0.18s;
-    }
-    #submit-btn:hover { background: #00f2d8; box-shadow: 0 0 16px var(--primary-glow); transform: scale(1.04); }
-    #submit-btn:disabled { background: #1a3040; color: var(--text-dim); cursor: not-allowed; transform: none; box-shadow: none; }
-
-    /* ===================== DASHBOARD PANEL ===================== */
-    .dash-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-      padding: 11px;
-      gap: 9px;
       background: var(--bg);
+      padding: 16px 24px 20px;
     }
-    .dash-panel::-webkit-scrollbar { width: 3px; }
-    .dash-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* KPI row */
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .kpi-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-top: 2px solid var(--kc, var(--primary));
-      border-radius: 9px;
-      padding: 13px 15px 11px;
-      transition: border-color 0.18s, background 0.18s;
+    .input-inner {
+      max-width: 760px;
+      margin: 0 auto;
       position: relative;
-      overflow: hidden;
     }
-    .kpi-card::after {
-      content: '';
+    .input-box {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 52px 14px 16px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      min-height: 50px;
+      max-height: 160px;
+      overflow-y: auto;
+      transition: border-color 0.15s;
+    }
+    .input-box::placeholder { color: var(--text-faint); }
+    .input-box:focus { border-color: var(--border-light); }
+
+    .send-btn {
       position: absolute;
-      top: 0; left: 0; right: 0; height: 40px;
-      background: linear-gradient(to bottom, rgba(var(--kc-rgb,0,212,184),0.04), transparent);
-      pointer-events: none;
-    }
-    .kpi-card:hover { background: var(--card-hover); border-color: var(--border-md); }
-    .kpi-label {
-      font-family: var(--font-m);
-      font-size: 0.56rem;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 7px;
-    }
-    .kpi-value {
-      font-family: var(--font-h);
-      font-size: 1.9rem;
-      font-weight: 800;
-      color: var(--kc, var(--primary));
-      line-height: 1;
-      letter-spacing: -0.01em;
-    }
-    .kpi-sub {
-      font-family: var(--font-m);
-      font-size: 0.58rem;
-      color: var(--text-dim);
-      margin-top: 5px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .kpi-up   { color: var(--buy); }
-    .kpi-down { color: var(--sell); }
-
-    /* Chart rows */
-    .charts-row {
-      display: grid;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .cr-3-2 { grid-template-columns: 3fr 2fr; }
-
-    .chart-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-    }
-    .chart-hdr {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 9px;
-    }
-    .chart-title {
-      font-family: var(--font-h);
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--text-bright);
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .chart-badge {
-      font-family: var(--font-m);
-      font-size: 0.56rem;
-      padding: 2px 6px;
-      border-radius: 3px;
-      background: var(--primary-dim);
-      border: 1px solid var(--border);
-      color: var(--primary);
-    }
-    .chart-body {
-      position: relative;
-      flex: 1;
-      min-height: 0;
-    }
-    .chart-loading {
-      position: absolute; inset: 0;
+      right: 10px;
+      bottom: 10px;
+      width: 32px; height: 32px;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 7px;
-      font-family: var(--font-m);
-      font-size: 0.62rem;
-      color: var(--text-dim);
+      transition: opacity 0.15s, transform 0.1s;
     }
-    .chart-spinner {
-      width: 20px; height: 20px;
-      border: 2px solid var(--border);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
+    .send-btn:hover { opacity: 0.88; }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { background: var(--border); cursor: not-allowed; }
 
-    /* ===================== TICKER STRIP ===================== */
-    .ticker {
-      height: 36px;
-      min-height: 36px;
-      background: rgba(6,15,24,0.97);
-      border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      overflow: hidden;
-      flex-shrink: 0;
+    .input-hint {
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--text-faint);
+      margin-top: 8px;
     }
-    .ticker-lbl {
-      font-family: var(--font-m);
-      font-size: 0.58rem;
-      color: var(--primary);
-      background: var(--primary-dim);
-      border-right: 1px solid var(--border);
-      padding: 0 11px;
-      height: 100%;
-      display: flex; align-items: center;
-      letter-spacing: 0.08em;
-      flex-shrink: 0;
-      text-transform: uppercase;
-    }
-    .ticker-scroll {
-      flex: 1; overflow: hidden;
-      height: 100%;
-      display: flex; align-items: center;
-    }
-    .ticker-inner {
-      display: inline-flex;
-      align-items: center;
-      gap: 24px;
-      white-space: nowrap;
-      animation: t-scroll 55s linear infinite;
-      padding-left: 24px;
-    }
-    @keyframes t-scroll {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
-    }
-    .t-item {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-family: var(--font-m); font-size: 0.62rem; color: var(--text-dim);
-    }
-    .t-sym  { color: var(--text-bright); font-weight: 600; }
-    .t-buy  { color: var(--buy); }
-    .t-sell { color: var(--sell); }
-    .t-sep  { color: #1a3040; font-size: 0.8rem; }
-
-    /* Scrollbar global */
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--border-md); }
   </style>
 </head>
 <body>
 
-<!-- ===== HEADER ===== -->
 <header>
-  <div class="logo">
-    <div class="logo-icon">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
         <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
         <polyline points="16 7 22 7 22 13"/>
       </svg>
     </div>
-    <span class="logo-name">QUANTSIGHT</span>
-    <span class="logo-badge">RAG v2.5</span>
+    <span class="brand-name">QuantSight</span>
   </div>
-
-  <div class="header-mid">
-    <div class="market-clock">
-      <div id="live-clock">--:--:--</div>
-      <div class="clock-label">IST &nbsp;·&nbsp; NSE Market</div>
-    </div>
-    <div class="market-session pre" id="session-badge">CLOSED</div>
-  </div>
-
   <div class="header-right">
-    <div class="h-stat ok" id="es-status"><div class="h-dot"></div> ELK</div>
-    <div class="h-stat ok" id="redis-status"><div class="h-dot"></div> Redis</div>
-    <div class="h-stat ok" id="ai-status"><div class="h-dot"></div> AI</div>
-    <div class="data-badge" id="total-badge">Loading…</div>
+    <div class="status-dot"><div class="dot" id="es-dot"></div> <span id="es-label">ELK</span></div>
+    <div class="status-dot"><div class="dot" id="rd-dot"></div> <span id="rd-label">Redis</span></div>
   </div>
 </header>
 
-<!-- ===== CONTENT ===== -->
-<div class="content">
+<div class="chat-wrap" id="chat-wrap">
+  <div class="chat-inner" id="chat-inner">
 
-  <!-- CHAT PANEL -->
-  <div class="chat-panel">
-    <div class="chat-panel-hdr">
-      <span class="chat-panel-title">&#x276A; AI Terminal &#x276B;</span>
-      <span class="model-pill" id="model-label">Groq · Llama3</span>
-    </div>
-
-    <div id="chat-scroller">
-      <div class="welcome-state" id="welcome-area">
-        <h3>NSE Trading Intelligence</h3>
-        <p class="w-sub" id="welcome-sub">277,162 orders &nbsp;·&nbsp; Jan 20 2026 &nbsp;·&nbsp; NSE / NFO / BSE</p>
-        <div class="suggestion-grid">
-          <div class="sug-card" onclick="runSuggested('What are the top 10 most traded symbols by order count?')">
-            <span class="sug-ico">📊</span>
-            <div>
-              <h4>Top Symbol Analysis</h4>
-              <p>Rank symbols by order activity across all exchanges</p>
-            </div>
-          </div>
-          <div class="sug-card" onclick="runSuggested('What is the overall fill rate and show filled vs cancelled order counts?')">
-            <span class="sug-ico">✅</span>
-            <div>
-              <h4>Fill Rate Report</h4>
-              <p>Fill rate, cancel rate and order status breakdown</p>
-            </div>
-          </div>
-          <div class="sug-card" onclick="runSuggested('Compare buy vs sell order volumes for NIFTY futures today')">
-            <span class="sug-ico">⚖️</span>
-            <div>
-              <h4>Buy vs Sell Flow</h4>
-              <p>Directional imbalance analysis for index derivatives</p>
-            </div>
-          </div>
-          <div class="sug-card" onclick="runSuggested('Show REJECTED orders — which symbols and brokers have the most rejections?')">
-            <span class="sug-ico">🚨</span>
-            <div>
-              <h4>Rejection Analysis</h4>
-              <p>Identify patterns in rejected orders by broker and symbol</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="chat-input-wrap">
-      <textarea id="query-input" placeholder="Ask about RELIANCE fills, NIFTY order flow, broker analysis…" rows="1"></textarea>
-      <button id="submit-btn" title="Execute Query">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="5" y1="12" x2="19" y2="12"/>
-          <polyline points="12 5 19 12 12 19"/>
+    <div class="welcome" id="welcome">
+      <div class="welcome-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2">
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+          <polyline points="16 7 22 7 22 13"/>
         </svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- DASHBOARD PANEL -->
-  <div class="dash-panel">
-
-    <!-- KPI Row -->
-    <div class="kpi-row">
-      <div class="kpi-card" style="--kc:var(--primary)">
-        <div class="kpi-label">Total Orders</div>
-        <div class="kpi-value" id="kpi-total">—</div>
-        <div class="kpi-sub" id="kpi-total-sub"><span>Loading…</span></div>
       </div>
-      <div class="kpi-card" style="--kc:var(--buy)">
-        <div class="kpi-label">Fill Rate</div>
-        <div class="kpi-value" id="kpi-fill">—</div>
-        <div class="kpi-sub" id="kpi-fill-sub">Filled orders ratio</div>
-      </div>
-      <div class="kpi-card" style="--kc:var(--amber)">
-        <div class="kpi-label">Buy / Sell Ratio</div>
-        <div class="kpi-value" id="kpi-bs">—</div>
-        <div class="kpi-sub" id="kpi-bs-sub">Directional bias</div>
-      </div>
-      <div class="kpi-card" style="--kc:var(--purple)">
-        <div class="kpi-label">Active Symbols</div>
-        <div class="kpi-value" id="kpi-syms">—</div>
-        <div class="kpi-sub" id="kpi-syms-sub">Unique tickers</div>
-      </div>
-    </div>
-
-    <!-- Charts Row 1: Hourly + Exchange -->
-    <div class="charts-row cr-3-2" style="height:238px">
-      <div class="chart-card">
-        <div class="chart-hdr">
-          <span class="chart-title">Hourly Order Activity</span>
-          <span class="chart-badge" id="badge-peak">—</span>
+      <h1>How can I help you?</h1>
+      <p>Ask anything about your NSE/NFO trading data — order flow, fill rates, broker analysis, symbol performance.</p>
+      <div class="suggestions">
+        <div class="sug" onclick="suggest('What are the top 10 most traded symbols today?')">
+          <div class="sug-title">Top symbols</div>
+          <div class="sug-desc">Rank by order activity across all exchanges</div>
         </div>
-        <div class="chart-body">
-          <div class="chart-loading" id="load-hourly">
-            <div class="chart-spinner"></div><span>Querying…</span>
-          </div>
-          <canvas id="cHourly"></canvas>
+        <div class="sug" onclick="suggest('What is the overall fill rate and order status breakdown?')">
+          <div class="sug-title">Fill rate report</div>
+          <div class="sug-desc">Fill, cancel, and rejection analysis</div>
         </div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-hdr">
-          <span class="chart-title">Exchange Split</span>
-          <span class="chart-badge" id="badge-exch">—</span>
+        <div class="sug" onclick="suggest('Compare buy vs sell volumes for NIFTY futures today')">
+          <div class="sug-title">Buy vs sell flow</div>
+          <div class="sug-desc">Directional imbalance for index derivatives</div>
         </div>
-        <div class="chart-body">
-          <div class="chart-loading" id="load-exch">
-            <div class="chart-spinner"></div><span>Querying…</span>
-          </div>
-          <canvas id="cExchange"></canvas>
+        <div class="sug" onclick="suggest('Which brokers have the most rejected orders?')">
+          <div class="sug-title">Rejection analysis</div>
+          <div class="sug-desc">Patterns in rejections by broker and symbol</div>
         </div>
       </div>
     </div>
 
-    <!-- Charts Row 2: Top Symbols + Order Status -->
-    <div class="charts-row cr-3-2" style="height:238px">
-      <div class="chart-card">
-        <div class="chart-hdr">
-          <span class="chart-title">Top 10 Symbols</span>
-          <span class="chart-badge">by order count</span>
-        </div>
-        <div class="chart-body">
-          <div class="chart-loading" id="load-sym">
-            <div class="chart-spinner"></div><span>Querying…</span>
-          </div>
-          <canvas id="cSymbols"></canvas>
-        </div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-hdr">
-          <span class="chart-title">Order Status</span>
-          <span class="chart-badge" id="badge-status">distribution</span>
-        </div>
-        <div class="chart-body">
-          <div class="chart-loading" id="load-status">
-            <div class="chart-spinner"></div><span>Querying…</span>
-          </div>
-          <canvas id="cStatus"></canvas>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /dash-panel -->
-</div><!-- /content -->
-
-<!-- ===== TICKER STRIP ===== -->
-<div class="ticker">
-  <div class="ticker-lbl">Live</div>
-  <div class="ticker-scroll">
-    <div class="ticker-inner" id="ticker-inner">
-      <!-- populated by JS -->
-    </div>
   </div>
 </div>
 
+<div class="input-zone">
+  <div class="input-inner">
+    <textarea
+      id="input"
+      class="input-box"
+      placeholder="Ask about RELIANCE fills, NIFTY order flow, broker stats…"
+      rows="1"
+    ></textarea>
+    <button class="send-btn" id="send-btn" title="Send">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="19" x2="12" y2="5"/>
+        <polyline points="5 12 12 5 19 12"/>
+      </svg>
+    </button>
+  </div>
+  <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+</div>
+
 <script>
-// ═══════════════════════════════════════════════════════
-//  CHART.JS GLOBALS
-// ═══════════════════════════════════════════════════════
-Chart.defaults.color        = '#3d6278';
-Chart.defaults.borderColor  = 'rgba(255,255,255,0.05)';
-Chart.defaults.font.family  = "'IBM Plex Mono', monospace";
-Chart.defaults.font.size    = 11;
+const chatWrap  = document.getElementById('chat-wrap');
+const chatInner = document.getElementById('chat-inner');
+const input     = document.getElementById('input');
+const sendBtn   = document.getElementById('send-btn');
+const welcome   = document.getElementById('welcome');
 
-const PALETTE = {
-  primary : '#00d4b8',
-  buy     : '#00e676',
-  sell    : '#ff4069',
-  amber   : '#ffcc00',
-  purple  : '#8b5cf6',
-  pink    : '#f472b6',
-  orange  : '#fb923c',
-  blue    : '#38bdf8',
-  teal    : '#2dd4bf',
-};
+// ── auto-resize textarea ──
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+});
 
-const EXCH_COLORS = {
-  NSE: '#00d4b8', NFO: '#8b5cf6', BSE: '#ffcc00',
-  BFO: '#fb923c', CDS: '#38bdf8', MCX: '#f472b6',
-};
-
-// ═══════════════════════════════════════════════════════
-//  CHART INSTANCES
-// ═══════════════════════════════════════════════════════
-let chartHourly, chartExchange, chartSymbols, chartStatus;
-
-function mkGrad(ctx, color) {
-  const g = ctx.createLinearGradient(0, 0, 0, ctx.canvas.offsetHeight || 200);
-  g.addColorStop(0, color.replace(')', ',0.25)').replace('rgb', 'rgba'));
-  g.addColorStop(1, color.replace(')', ',0.01)').replace('rgb', 'rgba'));
-  return g;
+// ── suggest click ──
+function suggest(text) {
+  input.value = text;
+  input.dispatchEvent(new Event('input'));
+  submit();
 }
 
-function hideLoad(id, canvasId) {
-  const l = document.getElementById(id);
-  const c = document.getElementById(canvasId);
-  if (l) l.style.display = 'none';
-  if (c) c.style.display = 'block';
+// ── scroll to bottom ──
+function scrollBottom() {
+  chatWrap.scrollTop = chatWrap.scrollHeight;
 }
 
-function initCharts() {
-  // Hourly Activity – Line
-  const hCtx = document.getElementById('cHourly').getContext('2d');
-  chartHourly = new Chart(hCtx, {
-    type: 'line',
-    data: {
-      labels: Array.from({length:24}, (_,i) => String(i).padStart(2,'0') + ':00'),
-      datasets: [{
-        label: 'Orders',
-        data: new Array(24).fill(0),
-        fill: true,
-        backgroundColor: ctx => {
-          const g = ctx.chart.ctx.createLinearGradient(0,0,0,ctx.chart.height);
-          g.addColorStop(0, 'rgba(0,212,184,0.20)');
-          g.addColorStop(1, 'rgba(0,212,184,0.00)');
-          return g;
-        },
-        borderColor: PALETTE.primary,
-        borderWidth: 2,
-        tension: 0.42,
-        pointRadius: 3,
-        pointBackgroundColor: PALETTE.primary,
-        pointHoverRadius: 5,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#3d6278', maxRotation: 0, font: { size: 9 } } },
-        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#3d6278', font: { size: 9 } } }
-      },
-      interaction: { mode: 'nearest', axis: 'x', intersect: false },
-    }
+// ── add user message ──
+function addUser(text) {
+  if (welcome) welcome.style.display = 'none';
+  const el = document.createElement('div');
+  el.className = 'msg';
+  el.innerHTML = `
+    <div class="msg-avatar user">You</div>
+    <div class="msg-body">
+      <div class="msg-name">You</div>
+      <div class="msg-text">${escHtml(text)}</div>
+    </div>`;
+  chatInner.appendChild(el);
+  scrollBottom();
+}
+
+// ── add thinking bubble ──
+function addThinking() {
+  const el = document.createElement('div');
+  el.className = 'msg';
+  el.id = 'thinking';
+  el.innerHTML = `
+    <div class="msg-avatar bot">QS</div>
+    <div class="msg-body">
+      <div class="msg-name">QuantSight</div>
+      <div class="thinking-body">
+        <div class="think-row active" id="t1"><div class="think-icon"></div>Analysing intent</div>
+        <div class="think-row" id="t2"><div class="think-icon"></div>Security check</div>
+        <div class="think-row" id="t3"><div class="think-icon"></div>Retrieving data</div>
+        <div class="think-row" id="t4"><div class="think-icon"></div>Synthesising</div>
+        <div class="think-row" id="t5"><div class="think-icon"></div>Verifying</div>
+      </div>
+    </div>`;
+  chatInner.appendChild(el);
+  scrollBottom();
+  return el;
+}
+
+function stepTo(id) {
+  document.querySelectorAll('.think-row.active').forEach(r => {
+    r.classList.remove('active'); r.classList.add('done');
   });
-
-  // Exchange – Doughnut
-  const eCtx = document.getElementById('cExchange').getContext('2d');
-  chartExchange = new Chart(eCtx, {
-    type: 'doughnut',
-    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0, hoverOffset: 6 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '68%',
-      plugins: {
-        legend: { position: 'right', labels: { color: '#3d6278', boxWidth: 10, padding: 10, font: { size: 10 } } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}` } }
-      }
-    }
-  });
-
-  // Symbols – Horizontal Bar
-  const sCtx = document.getElementById('cSymbols').getContext('2d');
-  chartSymbols = new Chart(sCtx, {
-    type: 'bar',
-    data: { labels: [], datasets: [{ label: 'Orders', data: [], backgroundColor: PALETTE.primary + 'cc', borderRadius: 3, borderSkipped: false }] },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#3d6278', font: { size: 9 } } },
-        y: { grid: { display: false }, ticks: { color: '#ddeef8', font: { size: 10, family: "'IBM Plex Mono', monospace" } } }
-      }
-    }
-  });
-
-  // Status – Doughnut
-  const stCtx = document.getElementById('cStatus').getContext('2d');
-  chartStatus = new Chart(stCtx, {
-    type: 'doughnut',
-    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0, hoverOffset: 6 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '65%',
-      plugins: {
-        legend: { position: 'right', labels: { color: '#3d6278', boxWidth: 10, padding: 8, font: { size: 10 } } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}` } }
-      }
-    }
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-//  STATS LOADING
-// ═══════════════════════════════════════════════════════
-let statsLoaded = false;
-
-async function loadStats() {
-  try {
-    const res = await fetch('/api/stats');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    updateDashboard(data);
-    statsLoaded = true;
-  } catch(e) {
-    console.warn('Stats fetch failed:', e);
-    if (!statsLoaded) showStatsError();
-  }
-}
-
-function showStatsError() {
-  ['kpi-total','kpi-fill','kpi-bs','kpi-syms'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.textContent === '—') el.textContent = 'N/A';
-  });
-}
-
-function updateDashboard(data) {
-  const t = data.totals || {};
-
-  // KPI: Total orders
-  const total = parseInt(t.total_orders) || 0;
-  animCount('kpi-total', total, fmt);
-  document.getElementById('kpi-total-sub').innerHTML =
-    `<span style="color:var(--buy)" class="kpi-up">▲</span>&nbsp;Jan 20, 2026`;
-  document.getElementById('total-badge').textContent = fmt(total) + ' records';
-
-  // KPI: Fill rate
-  const fillRate = parseFloat(t.fill_rate) || 0;
-  document.getElementById('kpi-fill').textContent = (fillRate * 100).toFixed(1) + '%';
-  const filledCount = Math.round(total * fillRate);
-  document.getElementById('kpi-fill-sub').innerHTML =
-    `<span class="kpi-up">✓</span>&nbsp;${fmt(filledCount)} filled`;
-
-  // KPI: Buy/Sell ratio
-  const buy  = parseInt(t.buy_orders)  || 0;
-  const sell = parseInt(t.sell_orders) || 0;
-  const ratio = sell > 0 ? (buy / sell).toFixed(2) : '—';
-  document.getElementById('kpi-bs').textContent = ratio;
-  document.getElementById('kpi-bs-sub').innerHTML =
-    `<span class="kpi-up t-buy">B</span>&nbsp;${fmt(buy)}&nbsp;&nbsp;<span class="kpi-down t-sell">S</span>&nbsp;${fmt(sell)}`;
-
-  // KPI: Symbols
-  const symCount = (data.top_symbols || []).length;
-  document.getElementById('kpi-syms').textContent = symCount >= 10 ? '4,380+' : symCount;
-  document.getElementById('kpi-syms-sub').textContent = 'Unique tickers traded';
-
-  // Hourly chart
-  const hourly = data.hourly || new Array(24).fill(0);
-  chartHourly.data.datasets[0].data = hourly;
-  chartHourly.update('active');
-  hideLoad('load-hourly', 'cHourly');
-  const peakH = hourly.indexOf(Math.max(...hourly));
-  document.getElementById('badge-peak').textContent = `Peak: ${String(peakH).padStart(2,'0')}:00–${String(peakH+1).padStart(2,'0')}:00 IST`;
-
-  // Exchange doughnut
-  const exchs = data.exchanges || [];
-  if (exchs.length) {
-    chartExchange.data.labels   = exchs.map(e => e.ExchSeg || '—');
-    chartExchange.data.datasets[0].data            = exchs.map(e => e.count || 0);
-    chartExchange.data.datasets[0].backgroundColor = exchs.map(e => EXCH_COLORS[e.ExchSeg] || PALETTE.blue);
-    chartExchange.update('active');
-    hideLoad('load-exch', 'cExchange');
-    document.getElementById('badge-exch').textContent = exchs.length + ' exchanges';
-  }
-
-  // Top symbols bar
-  const syms = (data.top_symbols || []).slice(0, 10);
-  if (syms.length) {
-    chartSymbols.data.labels = syms.map(s => s.ticker || '?');
-    chartSymbols.data.datasets[0].data = syms.map(s => s.count || 0);
-    // gradient colours
-    const gradient = syms.map((_,i) => {
-      const mix = i / (syms.length - 1);
-      return lerpColor('#00d4b8', '#8b5cf6', mix);
-    });
-    chartSymbols.data.datasets[0].backgroundColor = gradient.map(c => c + 'cc');
-    chartSymbols.update('active');
-    hideLoad('load-sym', 'cSymbols');
-  }
-
-  // Status doughnut
-  const STATUS_COLORS = {
-    FILLED: PALETTE.buy, OPEN: PALETTE.primary, NEW: PALETTE.blue,
-    CANCELLED: PALETTE.amber, REJECTED: PALETTE.sell, PARTIAL: PALETTE.orange,
-    AMO: PALETTE.purple, REPLACED: PALETTE.pink, UNKNOWN: '#2a4a5a',
-  };
-  const statuses = data.statuses || [];
-  if (statuses.length) {
-    chartStatus.data.labels   = statuses.map(s => s.label || '?');
-    chartStatus.data.datasets[0].data            = statuses.map(s => s.count || 0);
-    chartStatus.data.datasets[0].backgroundColor = statuses.map(s => STATUS_COLORS[s.label] || '#2a4a5a');
-    chartStatus.update('active');
-    hideLoad('load-status', 'cStatus');
-    document.getElementById('badge-status').textContent = statuses.length + ' statuses';
-  }
-
-  // Ticker strip
-  buildTicker(syms);
-}
-
-function lerpColor(a, b, t) {
-  const ah = parseInt(a.slice(1),16), bh = parseInt(b.slice(1),16);
-  const ar=(ah>>16)&0xff, ag=(ah>>8)&0xff, ab=ah&0xff;
-  const br=(bh>>16)&0xff, bg=(bh>>8)&0xff, bb=bh&0xff;
-  const r = Math.round(ar + (br-ar)*t);
-  const g = Math.round(ag + (bg-ag)*t);
-  const blue = Math.round(ab + (bb-ab)*t);
-  return '#'+[r,g,blue].map(v=>v.toString(16).padStart(2,'0')).join('');
-}
-
-// ═══════════════════════════════════════════════════════
-//  TICKER BUILDER
-// ═══════════════════════════════════════════════════════
-function buildTicker(syms) {
-  const SAMPLE_PRICES = {
-    NIFTY: 24520, BANKNIFTY: 52180, RELIANCE: 2430,
-    INFY: 1875, TCS: 4102, HDFCBANK: 1640, ICICIBANK: 1210,
-    SBIN: 780, BAJFINANCE: 7180, WIPRO: 305,
-  };
-  const items = syms.length > 0 ? syms : Object.keys(SAMPLE_PRICES).map(k => ({ticker:k}));
-  const half = items.map(s => {
-    const sym = s.ticker || '?';
-    const side = Math.random() > 0.5 ? 'B' : 'S';
-    const qty  = Math.round((Math.random() * 200 + 25) / 25) * 25;
-    const base = SAMPLE_PRICES[sym] || (Math.random() * 3000 + 500);
-    const price = (base + (Math.random() - 0.5) * base * 0.005).toFixed(2);
-    const cls   = side === 'B' ? 't-buy' : 't-sell';
-    return `<span class="t-item"><span class="t-sym">${sym}</span><span class="${cls}">${side}</span>${qty} @${Number(price).toLocaleString('en-IN')}</span>`;
-  });
-  const sep = '<span class="t-sep">|</span>';
-  const content = [...half, ...half].join(sep);
-  document.getElementById('ticker-inner').innerHTML = content;
-}
-
-// ═══════════════════════════════════════════════════════
-//  COUNTER ANIMATION
-// ═══════════════════════════════════════════════════════
-function animCount(id, target, fmtFn) {
   const el = document.getElementById(id);
-  if (!el) return;
-  const start = 0, dur = 1400, ease = t => 1 - Math.pow(1 - t, 3);
-  let startTime = null;
-  function step(ts) {
-    if (!startTime) startTime = ts;
-    const p = Math.min((ts - startTime) / dur, 1);
-    el.textContent = fmtFn(Math.round(ease(p) * target));
-    if (p < 1) requestAnimationFrame(step);
-    else el.textContent = fmtFn(target);
+  if (el) el.classList.add('active');
+}
+
+// ── add final response ──
+function addResponse(res) {
+  const conf = (res.confidence || 'medium').toLowerCase();
+  const confClass = conf === 'high' ? 'green' : conf === 'medium' ? 'yellow' : 'red';
+
+  let metaHtml = `<div class="msg-meta">
+    <span class="chip ${confClass}">${conf.toUpperCase()}</span>
+    <span class="chip">${res.processing_time_ms || res.latency_ms || 0} ms</span>`;
+  if (res.cost_usd != null) metaHtml += `<span class="chip">$${(res.cost_usd||0).toFixed(5)}</span>`;
+  if (res.groundedness_score != null) metaHtml += `<span class="chip">ground ${(res.groundedness_score||0).toFixed(2)}</span>`;
+  if (res.from_cache) metaHtml += `<span class="chip">cached</span>`;
+  metaHtml += '</div>';
+
+  let citeHtml = '';
+  const cits = res.citations || [];
+  if (cits.length) {
+    citeHtml = '<div class="citations">' +
+      cits.slice(0,8).map(c => {
+        const id = typeof c === 'string' ? c : (c.log_id || '');
+        return `<span class="cit">LOG:${id.slice(-8)}</span>`;
+      }).join('') +
+      (cits.length > 8 ? `<span class="cit">+${cits.length-8}</span>` : '') +
+      '</div>';
   }
-  requestAnimationFrame(step);
-}
-function fmt(n) {
-  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return n.toLocaleString('en-IN');
-  return String(n);
-}
 
-// ═══════════════════════════════════════════════════════
-//  SYSTEM STATUS POLLING
-// ═══════════════════════════════════════════════════════
-async function pollStatus() {
-  try {
-    const r = await fetch('/health/ready');
-    const d = await r.json();
-    const es = document.getElementById('es-status');
-    const rd = document.getElementById('redis-status');
-    es.className = 'h-stat ' + (d.elasticsearch ? 'ok' : 'err');
-    rd.className = 'h-stat ' + (d.redis        ? 'ok' : 'err');
-    es.innerHTML = `<div class="h-dot"></div> ELK`;
-    rd.innerHTML = `<div class="h-dot"></div> Redis`;
-  } catch {}
+  const el = document.createElement('div');
+  el.className = 'msg';
+  el.innerHTML = `
+    <div class="msg-avatar bot">QS</div>
+    <div class="msg-body">
+      <div class="msg-name">QuantSight</div>
+      <div class="msg-text">${escHtml(res.answer || res.message || '')}</div>
+      ${metaHtml}
+      ${citeHtml}
+    </div>`;
+  chatInner.appendChild(el);
+  scrollBottom();
 }
 
-// ═══════════════════════════════════════════════════════
-//  LIVE CLOCK (IST)
-// ═══════════════════════════════════════════════════════
-function startClock() {
-  function tick() {
-    const ist = new Date(new Date().toLocaleString('en-US', {timeZone: 'Asia/Kolkata'}));
-    const h = String(ist.getHours()).padStart(2,'0');
-    const m = String(ist.getMinutes()).padStart(2,'0');
-    const s = String(ist.getSeconds()).padStart(2,'0');
-    document.getElementById('live-clock').textContent = `${h}:${m}:${s}`;
-    // Market session indicator
-    const t = ist.getHours() * 60 + ist.getMinutes();
-    const sb = document.getElementById('session-badge');
-    const isWeekday = ist.getDay() >= 1 && ist.getDay() <= 5;
-    if (!isWeekday)                      { sb.className='market-session close'; sb.textContent='CLOSED'; }
-    else if (t >= 555 && t < 570)        { sb.className='market-session pre';   sb.textContent='PRE-OPEN'; }
-    else if (t >= 570 && t < 930)        { sb.className='market-session open';  sb.textContent='NSE OPEN'; }
-    else if (t >= 930 && t < 960)        { sb.className='market-session pre';   sb.textContent='POST'; }
-    else                                  { sb.className='market-session close'; sb.textContent='CLOSED'; }
-  }
-  tick();
-  setInterval(tick, 1000);
+function addError(msg) {
+  const el = document.createElement('div');
+  el.className = 'msg';
+  el.innerHTML = `
+    <div class="msg-avatar bot">QS</div>
+    <div class="msg-body">
+      <div class="msg-name">QuantSight</div>
+      <div class="msg-text error">${escHtml(msg)}</div>
+    </div>`;
+  chatInner.appendChild(el);
+  scrollBottom();
 }
 
-// ═══════════════════════════════════════════════════════
-//  CHAT FUNCTIONALITY
-// ═══════════════════════════════════════════════════════
-const chatScroller = document.getElementById('chat-scroller');
-const queryInput   = document.getElementById('query-input');
-const submitBtn    = document.getElementById('submit-btn');
-const welcomeArea  = document.getElementById('welcome-area');
-
-function runSuggested(text) {
-  queryInput.value = text;
-  handleSubmit();
-}
-
-function setLoading(on) {
-  submitBtn.disabled = on;
-  queryInput.disabled = on;
-}
-
-async function handleSubmit() {
-  const q = queryInput.value.trim();
+// ── submit ──
+async function submit() {
+  const q = input.value.trim();
   if (!q) return;
-  if (welcomeArea) welcomeArea.style.display = 'none';
+  input.value = '';
+  input.style.height = 'auto';
+  setLocked(true);
 
-  addMsg(q, 'user');
-  queryInput.value = '';
-  setLoading(true);
+  addUser(q);
+  const thinkEl = addThinking();
 
-  // Thinking bubble
-  const thinkEl = createThinkBubble();
-  chatScroller.appendChild(thinkEl);
-  chatScroller.scrollTop = chatScroller.scrollHeight;
-
-  const pipeSteps = [
-    { id:'p1', txt: 'Orchestration & Intent Analysis' },
-    { id:'p2', txt: 'Security Validation (ESQLGuard)' },
-    { id:'p3', txt: 'Multi-Source Evidence Retrieval' },
-    { id:'p4', txt: 'Cross-Agent Synthesis' },
-    { id:'p5', txt: 'Groundedness Verification' },
-  ];
-  let stepIdx = 0;
-  const stepTimer = setInterval(() => {
-    if (stepIdx < pipeSteps.length) {
-      activatePipeStep(pipeSteps[stepIdx].id);
-      stepIdx++;
-    } else {
-      clearInterval(stepTimer);
-    }
-  }, 1200);
+  let stepIdx = 1;
+  const STEPS = ['t1','t2','t3','t4','t5'];
+  const autoStep = setInterval(() => {
+    stepIdx++;
+    if (stepIdx < STEPS.length) stepTo(STEPS[stepIdx]);
+    else clearInterval(autoStep);
+  }, 1400);
 
   try {
     const resp = await fetch('/ask/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: q })
+      body: JSON.stringify({ query: q }),
     });
+
     const reader  = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
@@ -1184,12 +555,12 @@ async function handleSubmit() {
         if (!tl.startsWith('data: ')) continue;
         try {
           const d = JSON.parse(tl.slice(6));
-          if (d.router_output)      activatePipeStep('p2');
-          else if (d.evidence)      activatePipeStep('p3');
-          else if (d.analysis)      activatePipeStep('p4');
-          else if (d.evaluation)    activatePipeStep('p5');
+          if (d.router_output)    stepTo('t2');
+          else if (d.evidence)    stepTo('t3');
+          else if (d.analysis)    stepTo('t4');
+          else if (d.evaluation)  stepTo('t5');
           if (d.final_response || d.type === 'cache_hit') {
-            clearInterval(stepTimer);
+            clearInterval(autoStep);
             thinkEl.remove();
             addResponse(d.final_response || d);
             return;
@@ -1198,130 +569,44 @@ async function handleSubmit() {
         } catch {}
       }
     }
-    // If stream ended without final_response
     thinkEl.remove();
-    addMsg('Response stream ended without a final answer. Please retry.', 'bot', true);
-  } catch(err) {
-    clearInterval(stepTimer);
+    addError('Stream ended without a response. Please try again.');
+  } catch (err) {
     thinkEl.remove();
-    addMsg('Pipeline error: ' + err.message, 'bot', true);
+    addError('Error: ' + err.message);
   } finally {
-    setLoading(false);
+    clearInterval(autoStep);
+    setLocked(false);
   }
 }
 
-function createThinkBubble() {
-  const row = document.createElement('div');
-  row.className = 'msg-row bot-row';
-  row.id = 'think-row';
-  row.innerHTML = `
-    <div class="msg-bubble bot-bubble think-bubble">
-      <div class="think-hdr"><div class="spin-ring"></div>QUANT-RAG PIPELINE</div>
-      <div class="pipe-log">
-        <div class="pipe-line active" id="p1"><span class="pipe-num">1</span>Orchestration &amp; Intent Analysis</div>
-        <div class="pipe-line" id="p2"><span class="pipe-num">2</span>Security Validation (ESQLGuard)</div>
-        <div class="pipe-line" id="p3"><span class="pipe-num">3</span>Multi-Source Evidence Retrieval</div>
-        <div class="pipe-line" id="p4"><span class="pipe-num">4</span>Cross-Agent Synthesis</div>
-        <div class="pipe-line" id="p5"><span class="pipe-num">5</span>Groundedness Verification</div>
-      </div>
-    </div>`;
-  return row;
+function setLocked(on) {
+  sendBtn.disabled = on;
+  input.disabled   = on;
 }
 
-function activatePipeStep(id) {
-  document.querySelectorAll('.pipe-line.active').forEach(el => {
-    el.classList.remove('active'); el.classList.add('done');
-  });
-  const el = document.getElementById(id);
-  if (el) { el.classList.remove('done'); el.classList.add('active'); }
-}
-
-function addMsg(text, side, isErr = false) {
-  const row = document.createElement('div');
-  row.className = `msg-row ${side}-row`;
-  const bub = document.createElement('div');
-  bub.className = `msg-bubble ${side}-bubble` + (isErr ? ' err' : '');
-  bub.textContent = text;
-  row.appendChild(bub);
-  chatScroller.appendChild(row);
-  chatScroller.scrollTop = chatScroller.scrollHeight;
-}
-
-function addResponse(res) {
-  const row = document.createElement('div');
-  row.className = 'msg-row bot-row';
-
-  const bub = document.createElement('div');
-  bub.className = 'msg-bubble bot-bubble';
-
-  // Answer text
-  const txt = document.createElement('div');
-  txt.textContent = res.answer || res.message || '(no response)';
-  bub.appendChild(txt);
-
-  // Metadata
-  const conf = (res.confidence || 'MEDIUM').toLowerCase();
-  const meta = document.createElement('div');
-  meta.className = 'resp-meta';
-  meta.innerHTML = `
-    <span class="m-chip ${conf}">${conf.toUpperCase()} CONFIDENCE</span>
-    <span class="m-chip">⏱ ${res.processing_time_ms || res.latency_ms || 0}ms</span>
-    ${res.cost_usd != null ? `<span class="m-chip">$ ${(res.cost_usd||0).toFixed(5)}</span>` : ''}
-    ${res.groundedness_score != null ? `<span class="m-chip">G: ${(res.groundedness_score||0).toFixed(2)}</span>` : ''}
-    ${res.from_cache ? `<span class="m-chip">CACHED</span>` : ''}
-    <span class="m-chip">${res.data_freshness || 'LIVE'}</span>
-  `;
-  bub.appendChild(meta);
-
-  // Citations
-  const cits = res.citations || [];
-  if (cits.length > 0) {
-    const cl = document.createElement('div');
-    cl.className = 'cit-list';
-    cits.slice(0, 8).forEach(c => {
-      const ch = document.createElement('span');
-      ch.className = 'cit-chip';
-      const id = typeof c === 'string' ? c : (c.log_id || '');
-      ch.textContent = 'LOG:' + id.slice(-8);
-      cl.appendChild(ch);
-    });
-    if (cits.length > 8) {
-      const more = document.createElement('span');
-      more.className = 'cit-chip';
-      more.textContent = '+' + (cits.length - 8) + ' more';
-      cl.appendChild(more);
-    }
-    bub.appendChild(cl);
-  }
-
-  row.appendChild(bub);
-  chatScroller.appendChild(row);
-  chatScroller.scrollTop = chatScroller.scrollHeight;
-}
-
-// ═══════════════════════════════════════════════════════
-//  AUTO-RESIZE TEXTAREA
-// ═══════════════════════════════════════════════════════
-queryInput.addEventListener('input', () => {
-  queryInput.style.height = 'auto';
-  queryInput.style.height = Math.min(queryInput.scrollHeight, 90) + 'px';
+// ── keyboard ──
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
 });
-queryInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
-});
-submitBtn.addEventListener('click', handleSubmit);
+sendBtn.addEventListener('click', submit);
 
-// ═══════════════════════════════════════════════════════
-//  BOOT
-// ═══════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  startClock();
-  initCharts();
-  loadStats();
-  pollStatus();
-  setInterval(loadStats, 30000);
-  setInterval(pollStatus, 10000);
-});
+// ── health check ──
+async function checkHealth() {
+  try {
+    const r = await fetch('/health/ready');
+    const d = await r.json();
+    document.getElementById('es-dot').className = 'dot' + (d.elasticsearch ? '' : ' offline');
+    document.getElementById('rd-dot').className = 'dot' + (d.redis        ? '' : ' offline');
+  } catch {}
+}
+checkHealth();
+setInterval(checkHealth, 15000);
+
+// ── util ──
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 </script>
 </body>
 </html>
