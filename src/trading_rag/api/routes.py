@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
 from trading_rag.api.schemas import AskRequest, AskResponse, AskV2Response, ErrorDetail
 from trading_rag.clients import es_client, redis_client
@@ -153,3 +154,95 @@ async def readiness():
 @router.get("/metrics")
 async def metrics():
     return {"metrics": METRICS.snapshot(), "text": METRICS.to_text()}
+
+
+@router.get("/api/stats")
+async def dashboard_stats():
+    """Real-time dashboard statistics from Elasticsearch for the QuantSight UI."""
+    index = es_client.get_execution_logs_index()
+    time_range = {"start": "2020-01-01T00:00:00", "end": "2030-01-01T00:00:00"}
+    _STATUS_MAP = {48: "FILLED", 65: "OPEN", 110: "NEW", 67: "CANCELLED",
+                   56: "REJECTED", 98: "AMO", 50: "PARTIAL", 52: "REPLACED"}
+
+    def run_esql(query: str) -> dict:
+        try:
+            return es_client.execute_esql(query, time_range)
+        except Exception as e:
+            logger.warning(f"Stats sub-query failed: {e}")
+            return {"columns": [], "values": []}
+
+    def to_rows(result: dict) -> list[dict]:
+        cols = [c["name"] for c in result.get("columns", [])]
+        return [dict(zip(cols, r)) for r in result.get("values", [])]
+
+    try:
+        # 1. Overall totals
+        t_rows = to_rows(run_esql(
+            f'FROM "{index}" | WHERE msg_type == "ordupd"'
+            f' | STATS total_orders = COUNT(),'
+            f' fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0)),'
+            f' cancel_rate = AVG(CASE(OrdStatus == 67, 1.0, 0.0)),'
+            f' buy_orders = SUM(CASE(TransType == "B", 1, 0)),'
+            f' sell_orders = SUM(CASE(TransType == "S", 1, 0)),'
+            f' total_qty = SUM(QtyToFill)'
+        ))
+        totals = t_rows[0] if t_rows else {}
+
+        # 2. Exchange breakdown
+        exchanges = to_rows(run_esql(
+            f'FROM "{index}" | WHERE msg_type == "ordupd"'
+            f' | STATS count = COUNT() BY ExchSeg'
+            f' | SORT count DESC | LIMIT 10'
+        ))
+
+        # 3. Status distribution
+        raw_statuses = to_rows(run_esql(
+            f'FROM "{index}" | WHERE msg_type == "ordupd"'
+            f' | STATS count = COUNT() BY OrdStatus'
+            f' | SORT count DESC'
+        ))
+        statuses = [
+            {**r, "label": _STATUS_MAP.get(r.get("OrdStatus"), "UNKNOWN")}
+            for r in raw_statuses
+        ]
+
+        # 4. Top 10 symbols
+        top_symbols = to_rows(run_esql(
+            f'FROM "{index}" | WHERE msg_type == "ordupd" AND ticker IS NOT NULL'
+            f' | STATS count = COUNT() BY ticker'
+            f' | SORT count DESC | LIMIT 10'
+        ))
+
+        # 5. Hourly distribution
+        hourly_rows = to_rows(run_esql(
+            f'FROM "{index}" | WHERE msg_type == "ordupd"'
+            f' | STATS count = COUNT() BY hour = DATE_EXTRACT("HOUR_OF_DAY", @timestamp)'
+            f' | SORT hour ASC'
+        ))
+        hourly = [0] * 24
+        for r in hourly_rows:
+            h = int(r.get("hour") or 0)
+            if 0 <= h < 24:
+                hourly[h] = int(r.get("count") or 0)
+
+        # 6. Broker breakdown (top 10)
+        brokers = to_rows(run_esql(
+            f'FROM "{index}" | WHERE msg_type == "ordupd" AND BrokerId IS NOT NULL'
+            f' | STATS count = COUNT() BY BrokerId'
+            f' | SORT count DESC | LIMIT 10'
+        ))
+
+        return {
+            "totals": totals,
+            "exchanges": exchanges,
+            "statuses": statuses,
+            "top_symbols": top_symbols,
+            "hourly": hourly,
+            "brokers": brokers,
+            "last_updated": datetime.utcnow().isoformat() + "Z",
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Stats query failed", "error": str(e)},
+        )

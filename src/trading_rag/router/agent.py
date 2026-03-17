@@ -1,18 +1,34 @@
-ROUTER_SYSTEM_PROMPT = """You are a query router for a trading log analysis system. Your job is to analyze user questions and determine the best retrieval path.
+ROUTER_SYSTEM_PROMPT = """You are a query router for the QuantSight trading log analysis system. The data is real NSE/NFO/BSE order journal logs from the Noren OMS (Order Management System) serving 65+ Indian stock brokers.
+
+Key fields in the Elasticsearch index 'trading-execution-logs':
+- @timestamp: order event time
+- TradingSymbol: full symbol (e.g. RELIANCE-EQ, NIFTY27JAN26F, ICICIBANK27JAN26C1000)
+- ticker: base symbol without suffix (e.g. RELIANCE, NIFTY, ICICIBANK)
+- OrdStatus: 48=FILLED, 65=OPEN/PENDING, 110=NEW, 67=CANCELLED, 56=REJECTED
+- QtyToFill: order quantity (shares/lots)
+- PriceToFill: order price in paise (divide by 100 for rupees)
+- TransType: B=Buy, S=Sell
+- ExchSeg: NSE, NFO, BSE, BFO, CDS
+- BrokerId: broker code (EST, ISB, CSB, MES, etc.)
+- Product: I=Intraday, C=Delivery/CNC, M=Margin
+- PriceType: LMT=Limit, MKT=Market, SL-LMT=Stop-Loss-Limit, SL-MKT=Stop-Loss-Market
+- NorenOrdNum: unique order number
+- AcctId: client account ID
+- msg_type: ordupd, login, logout
 
 Available paths:
-1. structured_esql: Use when the query asks for structured data, metrics, aggregations, or specific numeric analysis
-2. dual_index_correlation: Use when the query involves correlating execution logs with feed logs or comparing two data sources
-3. semantic_incident: Use when the query asks about incidents, issues, problems, or events that happened
+1. structured_esql: Use for metrics, aggregations, counts, volume analysis, broker analysis, exchange analysis
+2. dual_index_correlation: Use for buy/sell imbalance analysis, order flow patterns, TransType comparisons
+3. semantic_incident: Use when asking about specific orders, accounts, or keyword searches
 
 Output format:
 - query_type: One of spike_detection, baseline_compare, venue_analysis, order_drilldown, feed_correlation, exploratory
 - query_path: The selected path
-- confidence: A score from 0.0 to 1.0 indicating your confidence in the routing decision
-- time_window: Extract the time range from the query. IMPORTANT: If no time range is specified, ALWAYS default to the last 24 hours.
-- symbol: Extract the main trading symbol (e.g., AAPL). IMPORTANT: If the user is comparing TWO OR MORE symbols (e.g., 'AAPL vs TSLA'), set symbol to null and I will group by all detected symbols automatically.
+- confidence: A score from 0.0 to 1.0
+- time_window: Extract the time range. IMPORTANT: If no time range is specified, ALWAYS default to the last 24 hours.
+- symbol: Extract the base ticker (e.g. RELIANCE, NIFTY, ICICIBANK). If comparing multiple symbols, set to null.
 - esql_query: An ES|QL query for structured paths, or null if not applicable.
-- reasoning: Brief explanation of why you chose this path"""
+- reasoning: Brief explanation of routing decision"""
 
 ROUTER_USER_PROMPT = """Analyze this trading log query:
 
@@ -86,7 +102,13 @@ def extract_symbol(query: str) -> str | None:
         "ME", "OF", "VS", "VERSUS", "OVER", "COMPARE",
         "HOUR", "HOURS", "DAY", "DAYS", "TODAY", "YESTERDAY",
         "IS", "ARE", "WAS", "WERE", "BE", "BEEN", "BEING", "HAVE", "HAS", "HAD", "DO", "DOES", "DID",
-        "TRADES", "LOGS", "DATA", "FEED", "EXEC", "AVG", "MAX", "MIN", "SUM", "COUNT"
+        "TRADES", "LOGS", "DATA", "FEED", "EXEC", "AVG", "MAX", "MIN", "SUM", "COUNT",
+        # Indian market / Noren field terms to exclude from symbol extraction
+        "EQ", "NSE", "NFO", "BSE", "BFO", "CDS", "FUT", "OPT", "CE", "PE",
+        "LMT", "MKT", "SL", "AMO", "CNC", "MIS", "NRML",
+        "BUY", "SELL", "ORDER", "ORDERS", "BROKER", "BROKERS", "ACCOUNT",
+        "FILL", "FILLED", "CANCEL", "CANCELLED", "REJECT", "REJECTED",
+        "INTRADAY", "DELIVERY", "MARGIN", "MARKET", "LIMIT", "STOP",
     }
     
     # Try more specific patterns first
@@ -218,54 +240,99 @@ def _default_esql(
 ) -> str | None:
     if not time_window:
         return None
+    # Use ticker field for base symbol matching (e.g. RELIANCE matches RELIANCE-EQ, RELIANCE27JAN26F, etc.)
     if symbols:
         symbol_values = ", ".join(f'"{s.upper()}"' for s in symbols)
-        symbol_filter = f"AND symbol IN ({symbol_values})"
+        symbol_filter = f"AND ticker IN ({symbol_values})"
     else:
         symbol_filter = ""
     base = f'@timestamp >= "{time_window.start.isoformat()}" AND @timestamp <= "{time_window.end.isoformat()}"'
 
     if query_type == QueryType.SPIKE_DETECTION:
+        # Detect order volume spikes or abnormal cancel/reject rates
+        by_clause = " BY ticker" if len(symbols) > 1 else ""
         return f"""
 FROM "trading-execution-logs"
-| WHERE {base} {symbol_filter}
-| STATS p95_latency = PERCENTILE(latency_ms, 95), error_rate = AVG(CASE(status == "error", 1.0, 0.0))
-| LIMIT 1
+| WHERE {base} {symbol_filter} AND msg_type == "ordupd"
+| STATS total_orders = COUNT(),
+        avg_qty = AVG(QtyToFill),
+        fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0)),
+        cancel_rate = AVG(CASE(OrdStatus == 67, 1.0, 0.0)){by_clause}
+| LIMIT 20
 """
     if query_type == QueryType.BASELINE_COMPARE:
-        by_symbol = " BY symbol" if len(symbols) > 1 else ""
+        by_clause = " BY ticker" if len(symbols) > 1 else ""
+        limit = max(1, len(symbols)) if len(symbols) > 1 else 1
         return f"""
 FROM "trading-execution-logs"
-| WHERE {base} {symbol_filter}
-| STATS avg_latency = AVG(latency_ms), avg_volume = AVG(volume), error_rate = AVG(CASE(status == "error", 1.0, 0.0)){by_symbol}
-| LIMIT {max(1, len(symbols)) if len(symbols) > 1 else 1}
+| WHERE {base} {symbol_filter} AND msg_type == "ordupd"
+| STATS total_orders = COUNT(),
+        avg_qty = AVG(QtyToFill),
+        total_qty = SUM(QtyToFill),
+        fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0)),
+        buy_orders = SUM(CASE(TransType == "B", 1, 0)),
+        sell_orders = SUM(CASE(TransType == "S", 1, 0)){by_clause}
+| LIMIT {limit}
 """
     if query_type == QueryType.VENUE_ANALYSIS:
+        # Break down order activity by exchange segment
         return f"""
 FROM "trading-execution-logs"
-| WHERE {base} {symbol_filter}
-| STATS avg_latency = AVG(latency_ms), error_rate = AVG(CASE(status == "error", 1.0, 0.0)) BY venue
-| SORT avg_latency DESC
-| LIMIT 50
+| WHERE {base} {symbol_filter} AND msg_type == "ordupd"
+| STATS total_orders = COUNT(),
+        avg_qty = AVG(QtyToFill),
+        fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0)) BY ExchSeg
+| SORT total_orders DESC
+| LIMIT 10
+"""
+    if query_type == QueryType.FEED_CORRELATION:
+        # Buy/sell flow analysis — replaces dual-index feed correlation
+        by_clause = " BY ticker" if len(symbols) > 1 else ""
+        return f"""
+FROM "trading-execution-logs"
+| WHERE {base} {symbol_filter} AND msg_type == "ordupd"
+| STATS buy_orders = SUM(CASE(TransType == "B", 1, 0)),
+        sell_orders = SUM(CASE(TransType == "S", 1, 0)),
+        buy_qty = SUM(CASE(TransType == "B", QtyToFill, 0)),
+        sell_qty = SUM(CASE(TransType == "S", QtyToFill, 0)),
+        total_orders = COUNT(){by_clause}
+| LIMIT 20
 """
     if query_type == QueryType.ORDER_DRILLDOWN:
-        order_match = re.search(r"order[_\\s-]?id[:\\s]+([A-Za-z0-9\\-_.]+)", query, re.IGNORECASE)
-        if not order_match:
-            return None
-        order_id = order_match.group(1)
+        # Try to find a NorenOrdNum in the query
+        order_match = re.search(r"\b(2\d{14})\b", query)
+        if order_match:
+            order_id = order_match.group(1)
+            return f"""
+FROM "trading-execution-logs"
+| WHERE NorenOrdNum == {order_id}
+| SORT @timestamp DESC
+| LIMIT 10
+| KEEP @timestamp, TradingSymbol, ticker, OrdStatus, QtyToFill, PriceToFill, TransType, ExchSeg, NorenOrdNum, AcctId
+"""
+        # Fallback: drilldown by symbol
         return f"""
 FROM "trading-execution-logs"
-| WHERE {base} AND order_id == "{order_id}" {symbol_filter}
+| WHERE {base} {symbol_filter} AND msg_type == "ordupd"
 | SORT @timestamp DESC
-| LIMIT 200
-| KEEP @timestamp, message, symbol, status, order_id
+| LIMIT 50
+| KEEP @timestamp, TradingSymbol, ticker, OrdStatus, QtyToFill, PriceToFill, TransType, ExchSeg, NorenOrdNum, AcctId
 """
-    return None
+    # Default: general stats
+    return f"""
+FROM "trading-execution-logs"
+| WHERE {base} {symbol_filter} AND msg_type == "ordupd"
+| STATS total_orders = COUNT(),
+        avg_qty = AVG(QtyToFill),
+        fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0))
+| LIMIT 1
+"""
 
 
 def _extract_symbols(query: str) -> list[str]:
     symbols = []
-    for match in re.finditer(r"\b([A-Z]{2,5})\b", query.upper()):
+    # Extended to 15 chars to handle Indian symbols like ICICIBANK, TATAMOTORS, BAJAJFINSV
+    for match in re.finditer(r"\b([A-Z]{2,15})\b", query.upper()):
         sym = match.group(1)
         if sym and extract_symbol(sym) == sym:
             symbols.append(sym)

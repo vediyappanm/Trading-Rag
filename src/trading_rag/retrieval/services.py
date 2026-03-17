@@ -27,8 +27,12 @@ def _parse_esql_result(result: dict[str, Any]) -> tuple[list[LogEntry], dict[str
     if "_id" in col_names and "@timestamp" in col_names:
         id_idx = col_names.index("_id")
         ts_idx = col_names.index("@timestamp")
-        msg_idx = col_names.index("message") if "message" in col_names else None
-        sym_idx = col_names.index("symbol") if "symbol" in col_names else None
+        # Handle both old 'message' and new Noren field names
+        msg_field = next((f for f in ["message", "description", "OrdRemarks"] if f in col_names), None)
+        msg_idx = col_names.index(msg_field) if msg_field else None
+        # Handle both old 'symbol' and new Noren fields
+        sym_field = next((f for f in ["ticker", "TradingSymbol", "symbol"] if f in col_names), None)
+        sym_idx = col_names.index(sym_field) if sym_field else None
 
         for row in values:
             val_id = str(row[id_idx])
@@ -60,16 +64,22 @@ def _parse_esql_result(result: dict[str, Any]) -> tuple[list[LogEntry], dict[str
             ))
         return logs, aggregations
 
-    # Aggregation style: handle by-symbol metrics
-    if "symbol" in col_names and len(values) > 0:
-        sym_idx = col_names.index("symbol")
-        by_symbol: dict[str, dict[str, Any]] = {}
-        metric_cols = [i for i, n in enumerate(col_names) if n != "symbol"]
+    # Aggregation style: handle by-symbol or by-exchange metrics
+    group_field = next((f for f in ["ticker", "TradingSymbol", "ExchSeg", "symbol"] if f in col_names), None)
+    if group_field and len(values) > 0:
+        grp_idx = col_names.index(group_field)
+        by_group: dict[str, dict[str, Any]] = {}
+        metric_cols = [i for i, n in enumerate(col_names) if n != group_field]
         for row in values:
-            sym = str(row[sym_idx])
-            by_symbol[sym] = {col_names[i]: row[i] for i in metric_cols}
-        aggregations["by_symbol"] = by_symbol
-        aggregations["symbol_comparison_count"] = len(by_symbol)
+            grp = str(row[grp_idx])
+            by_group[grp] = {col_names[i]: row[i] for i in metric_cols}
+        aggregations["by_symbol"] = by_group
+        aggregations["symbol_comparison_count"] = len(by_group)
+        aggregations["detected_symbols"] = list(by_group.keys())
+        # Populate flat metrics from first group for single-symbol queries
+        if len(by_group) == 1:
+            first_metrics = next(iter(by_group.values()))
+            aggregations.update(_normalize_metrics(first_metrics))
         return logs, aggregations
 
     # Aggregation style: convert columns to dict per row
@@ -92,6 +102,21 @@ def retrieve_with_esql_query(
         query_used=esql,
         path=path,
     )
+
+
+def _normalize_metrics(raw: dict[str, Any]) -> dict[str, Any]:
+    """Map Noren real field names to the keys analysis/baseline code expects."""
+    return {
+        "avg_latency_ms": raw.get("avg_qty", 0),       # repurposed: avg order quantity
+        "avg_volume": raw.get("total_orders", 0),       # repurposed: total orders
+        "total_volume": raw.get("total_qty", 0),        # total quantity traded
+        "total_count": raw.get("total_orders", 0),
+        "error_rate": 1.0 - (raw.get("fill_rate") or 1.0),  # non-fill rate
+        "fill_rate": raw.get("fill_rate", 0),
+        "buy_orders": raw.get("buy_orders", 0),
+        "sell_orders": raw.get("sell_orders", 0),
+        "cancel_rate": raw.get("cancel_rate", 0),
+    }
 
 
 _FIELD_CAPS_CACHE: dict[str, set[str]] = {}
@@ -120,7 +145,7 @@ def retrieve_execution_logs(
         limit = settings.api.max_log_limit
     if limit <= 0:
         limit = 1
-    symbol_filter = f'| WHERE symbol == "{symbol}"' if symbol else ""
+    symbol_filter = f'| WHERE ticker == "{symbol.upper()}" OR TradingSymbol == "{symbol.upper()}"' if symbol else ""
     keep_fields = ", ".join(_safe_keep_fields(es_client.get_execution_logs_index()))
     keep_clause = f"\n    | KEEP {keep_fields}" if keep_fields else ""
     esql = f"""
@@ -180,51 +205,51 @@ def retrieve_with_aggregation(
     symbol: str | None = None,
 ) -> RetrievedEvidence:
     base_filter = f'@timestamp >= "{time_window.start.isoformat()}" AND @timestamp <= "{time_window.end.isoformat()}"'
-    symbol_filter = f'| WHERE symbol == "{symbol}"' if symbol else ""
-    
-    # Use BY symbol to allow comparisons even if one symbol is passed
+    symbol_filter = f'AND (ticker == "{symbol.upper()}" OR TradingSymbol == "{symbol.upper()}")' if symbol else ""
+    by_clause = "BY ticker" if not symbol else ""
+
     esql = f"""
     FROM "{es_client.get_execution_logs_index()}"
-    | WHERE {base_filter}
-    {symbol_filter}
-    | EVAL is_error = CASE(status == "error", 1, 0)
-    | STATS avg_latency_ms = AVG(latency_ms), 
-            avg_volume = AVG(volume),
-            total_volume = SUM(volume),
-            total_count = COUNT(),
-            error_count = SUM(is_error)
-      BY symbol
-    | EVAL error_rate = error_count * 1.0 / total_count
+    | WHERE {base_filter} {symbol_filter} AND msg_type == "ordupd"
+    | STATS total_orders = COUNT(),
+            avg_qty = AVG(QtyToFill),
+            total_qty = SUM(QtyToFill),
+            fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0)),
+            cancel_rate = AVG(CASE(OrdStatus == 67, 1.0, 0.0)),
+            buy_orders = SUM(CASE(TransType == "B", 1, 0)),
+            sell_orders = SUM(CASE(TransType == "S", 1, 0))
+      {by_clause}
+    | SORT total_orders DESC
+    | LIMIT 20
     """
-    
+
     result = execute_esql_query(esql, time_window)
-    
-    aggregations = {}
+    columns = result.get("columns", [])
+    col_names = [c.get("name") for c in columns]
     rows = result.get("values", [])
-    
-    if rows:
-        # Structure the aggregations by symbol for the analysis agent
-        for row in rows:
-            if len(row) >= 7:
-                sym = str(row[0])
-                aggregations[f"{sym}_metrics"] = {
-                    "avg_latency_ms": row[1],
-                    "avg_volume": row[2],
-                    "total_volume": row[3],
-                    "total_count": row[4],
-                    "error_count": row[5],
-                    "error_rate": row[6],
-                }
-        
-        # Also provide a flattened summary for legacy parts of the analysis agent
-        # (Using the first row as the 'primary' or averaging multiple)
-        if len(rows) == 1:
-            aggregations.update(aggregations[f"{rows[0][0]}_metrics"])
+
+    aggregations: dict[str, Any] = {}
+
+    if rows and col_names:
+        if by_clause:
+            # Multi-symbol breakdown
+            ticker_idx = col_names.index("ticker") if "ticker" in col_names else 0
+            by_sym: dict[str, dict[str, Any]] = {}
+            for row in rows:
+                sym_key = str(row[ticker_idx])
+                metrics = {col_names[i]: row[i] for i in range(len(col_names)) if i != ticker_idx}
+                by_sym[sym_key] = metrics
+                by_sym[sym_key].update(_normalize_metrics(metrics))
+            aggregations["by_symbol"] = by_sym
+            aggregations["detected_symbols"] = list(by_sym.keys())
+            aggregations["symbol_comparison_count"] = len(by_sym)
         else:
-            # Multi-symbol summary
-            aggregations["symbol_comparison_count"] = len(rows)
-            aggregations["detected_symbols"] = [str(r[0]) for r in rows]
-    
+            # Single aggregation row (no BY clause)
+            row = rows[0]
+            raw = {col_names[i]: row[i] for i in range(len(col_names))}
+            aggregations.update(raw)
+            aggregations.update(_normalize_metrics(raw))
+
     return RetrievedEvidence(
         logs=[],
         aggregations=aggregations,
@@ -274,43 +299,50 @@ def semantic_search_incidents(
         limit = min(10, settings.api.max_log_limit)
     if limit <= 0:
         limit = 1
-    search_body = {
-        "query": {
-            "bool": {
-                "must": [
-                    {"match": {"description": query}}
-                ],
-                "filter": []
-            }
-        }
-    }
-    
+    # Search across TradingSymbol, BrokerId, AcctId, and ticker fields in real Noren data
+    filters: list[dict] = [{"term": {"msg_type": "ordupd"}}]
     if time_window:
-        search_body["query"]["bool"]["filter"].append({
+        filters.append({
             "range": {
                 "@timestamp": {
                     "gte": time_window.start.isoformat(),
-                    "lte": time_window.end.isoformat()
+                    "lte": time_window.end.isoformat(),
                 }
             }
         })
-    
-    result = es_client.search(es_client.get_incidents_index(), search_body)
-    
+    search_body = {
+        "size": limit,
+        "query": {
+            "bool": {
+                "should": [
+                    {"match": {"TradingSymbol": {"query": query, "boost": 2}}},
+                    {"match": {"ticker": {"query": query, "boost": 3}}},
+                    {"term": {"BrokerId": query.upper()}},
+                    {"term": {"AcctId": query.upper()}},
+                ],
+                "filter": filters,
+                "minimum_should_match": 1,
+            }
+        },
+        "sort": [{"@timestamp": {"order": "desc"}}],
+    }
+
+    result = es_client.search(es_client.get_execution_logs_index(), search_body)
+
     logs = []
     for hit in result.get("hits", {}).get("hits", []):
         source = hit.get("_source", {})
         logs.append(LogEntry(
             id=hit.get("_id", ""),
             timestamp=source.get("@timestamp", datetime.utcnow().isoformat()),
-            message=source.get("description", ""),
-            symbol=source.get("symbol"),
+            message=f"{source.get('TradingSymbol','')} {source.get('TransType','')} {source.get('QtyToFill','')} @ {source.get('PriceToFill',0)/100:.2f}",
+            symbol=source.get("ticker") or source.get("TradingSymbol"),
             fields=source,
         ))
-    
+
     return RetrievedEvidence(
         logs=logs,
         aggregations={},
-        query_used=f"semantic search: {query}",
+        query_used=f"search: {query}",
         path=QueryPath.SEMANTIC_INCIDENT,
     )

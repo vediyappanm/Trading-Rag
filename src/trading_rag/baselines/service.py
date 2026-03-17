@@ -1,6 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
-import hashlib
 
 from trading_rag.clients import es_client, redis_client
 from trading_rag.models import BaselineStats
@@ -18,43 +17,54 @@ def get_baseline(symbol: str | None, hour: int) -> BaselineStats | None:
 
 
 def fetch_baseline_from_es(symbol: str | None, hour: int) -> BaselineStats | None:
-    start_hour = datetime.utcnow().replace(hour=hour, minute=0, second=0, microsecond=0)
-    end_hour = start_hour.replace(minute=59, second=59)
-    
-    symbol_filter = f'AND symbol == "{symbol}"' if symbol else ""
-    
+    # Use last 30 days at the same hour for a meaningful baseline
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
+
+    symbol_filter = f'AND (ticker == "{symbol.upper()}" OR TradingSymbol == "{symbol.upper()}")' if symbol else ""
+
+    # DATE_EXTRACT hour filter + 30-day window gives true historical baseline
     esql = f"""
     FROM "{es_client.get_execution_logs_index()}"
-    | WHERE @timestamp >= "{start_hour.isoformat()}" AND @timestamp <= "{end_hour.isoformat()}" {symbol_filter}
-    | STATS avg_latency = AVG(latency_ms),
-            avg_volume = AVG(volume),
-            error_rate = AVG(CASE(status == "error", 1.0, 0.0)),
-            p95_latency = PERCENTILE(latency_ms, 95)
+    | WHERE @timestamp >= "{thirty_days_ago.isoformat()}"
+      AND @timestamp <= "{now.isoformat()}"
+      AND msg_type == "ordupd"
+      {symbol_filter}
+    | EVAL hour_of_day = DATE_EXTRACT("HOUR_OF_DAY", @timestamp)
+    | WHERE hour_of_day == {hour}
+    | STATS avg_qty = AVG(QtyToFill),
+            total_orders = COUNT(),
+            fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0)),
+            p95_qty = PERCENTILE(QtyToFill, 95)
     | LIMIT 1
     """
-    
+
     try:
-        result = es_client.execute_esql(esql, {"start": start_hour.isoformat(), "end": end_hour.isoformat()})
-        
+        result = es_client.execute_esql(esql, {"start": thirty_days_ago.isoformat(), "end": now.isoformat()})
+
         if result.get("values") and len(result["values"]) > 0:
+            columns = result.get("columns", [])
+            col_names = [c.get("name") for c in columns]
             row = result["values"][0]
-            if len(row) >= 4:
-                baseline_data = {
-                    "symbol": symbol,
-                    "hour": hour,
-                    "avg_latency_ms": row[0],
-                    "avg_volume": row[1],
-                    "error_rate": row[2],
-                    "p95_latency_ms": row[3],
-                    "source": "elasticsearch"
-                }
-                baseline = BaselineStats(**baseline_data)
-                
-                redis_client.set_baseline(symbol, hour, baseline.model_dump())
-                return baseline
+            row_dict = {col_names[i]: row[i] for i in range(len(col_names))}
+
+            baseline_data = {
+                "symbol": symbol,
+                "hour": hour,
+                # Repurpose model fields: avg_latency_ms=avg_qty, avg_volume=total_orders,
+                # error_rate=non-fill rate, p95_latency_ms=p95_qty
+                "avg_latency_ms": row_dict.get("avg_qty"),
+                "avg_volume": row_dict.get("total_orders"),
+                "error_rate": 1.0 - (row_dict.get("fill_rate") or 1.0),
+                "p95_latency_ms": row_dict.get("p95_qty"),
+                "source": "elasticsearch"
+            }
+            baseline = BaselineStats(**baseline_data)
+            redis_client.set_baseline(symbol, hour, baseline.model_dump())
+            return baseline
     except Exception:
         pass
-    
+
     return None
 
 

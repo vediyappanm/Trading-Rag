@@ -1,11 +1,20 @@
-ANALYSIS_SYSTEM_PROMPT = """You are a trading log analysis agent. Your job is to synthesize accurate, grounded answers from retrieved evidence and baseline comparisons.
+ANALYSIS_SYSTEM_PROMPT = """You are a trading log analysis agent for QuantSight, analyzing real NSE/NFO/BSE order data from the Noren OMS (Indian stock broker platform) serving 65+ brokers.
+
+Data context:
+- OrdStatus: 48=FILLED, 65=OPEN, 110=NEW, 67=CANCELLED, 56=REJECTED
+- TransType: B=Buy, S=Sell
+- ExchSeg: NSE=equity, NFO=F&O, BSE=equity, BFO=BSE F&O, CDS=currency
+- Product: I=Intraday(MIS), C=Delivery(CNC), M=Margin(NRML)
+- PriceToFill is in paise — divide by 100 for rupees (e.g. 23935 = ₹239.35)
+- QtyToFill is order quantity in shares or lots
+- Baseline metrics: avg_latency_ms = avg order quantity, avg_volume = total orders in period, error_rate = non-fill rate
 
 Guidelines:
-- Only use evidence from the retrieved logs
-- Include baseline comparisons when available (e.g., "x% above normal")
-- Cite specific log IDs or timestamps as evidence
-- Be concise and direct in your answers
-- If insufficient evidence, clearly state what information is missing"""
+- Only use evidence from the retrieved logs and aggregations
+- State prices in rupees (₹) after converting from paise
+- Include baseline comparisons when available
+- Cite order IDs (NorenOrdNum) or timestamps as evidence
+- Be concise and factual — this is used by trading operations teams"""
 
 ANALYSIS_USER_PROMPT = """Generate an answer to this trading log question:
 
@@ -34,9 +43,18 @@ def format_evidence(evidence: RetrievedEvidence) -> str:
     lines = []
     
     if evidence.logs:
-        lines.append(f"Found {len(evidence.logs)} log entries:")
+        lines.append(f"Found {len(evidence.logs)} order entries:")
         for log in evidence.logs[:5]:
-            lines.append(f"  - ID: {log.id}, Time: {log.timestamp}, Message: {log.message[:100]}")
+            extra = log.fields
+            status_map = {48: "FILLED", 65: "OPEN", 110: "NEW", 67: "CANCELLED", 56: "REJECTED"}
+            status = status_map.get(extra.get("OrdStatus"), str(extra.get("OrdStatus", "")))
+            price_paise = extra.get("PriceToFill", 0)
+            price_rs = f"₹{price_paise/100:.2f}" if price_paise else ""
+            lines.append(
+                f"  - Order {extra.get('NorenOrdNum','?')} | {extra.get('TradingSymbol','?')} "
+                f"| {extra.get('TransType','?')} {extra.get('QtyToFill','?')} {price_rs} "
+                f"| {status} | {extra.get('ExchSeg','?')} | {log.timestamp}"
+            )
     
     if evidence.aggregations:
         lines.append("\nAggregations:")
@@ -54,18 +72,18 @@ def format_baselines(baseline: BaselineStats | None) -> str:
         return "No baseline data available"
     
     lines = [
-        f"Symbol: {baseline.symbol or 'All'}",
-        f"Hour: {baseline.hour}:00",
+        f"Symbol: {baseline.symbol or 'All symbols'}",
+        f"Baseline hour (UTC): {baseline.hour}:00 — averaged over last 30 days",
     ]
-    
+
     if baseline.avg_latency_ms is not None:
-        lines.append(f"Average latency: {baseline.avg_latency_ms:.2f}ms")
+        lines.append(f"Avg order quantity (baseline): {baseline.avg_latency_ms:.2f} shares/lots")
     if baseline.avg_volume is not None:
-        lines.append(f"Average volume: {baseline.avg_volume:.2f}")
+        lines.append(f"Total orders in baseline period: {baseline.avg_volume:.0f}")
     if baseline.error_rate is not None:
-        lines.append(f"Error rate: {baseline.error_rate:.2%}")
+        lines.append(f"Non-fill rate (baseline): {baseline.error_rate:.2%}")
     if baseline.p95_latency_ms is not None:
-        lines.append(f"P95 latency: {baseline.p95_latency_ms:.2f}ms")
+        lines.append(f"P95 order quantity (baseline): {baseline.p95_latency_ms:.2f}")
     
     return "\n".join(lines)
 
@@ -79,32 +97,33 @@ def compare_to_baseline(
     
     comparisons = []
     
+    # avg_latency_ms repurposed as avg order quantity
     if baseline.avg_latency_ms is not None and "avg_latency_ms" in aggregations:
         current = aggregations["avg_latency_ms"]
         normal = baseline.avg_latency_ms
         if current is not None and normal > 0:
             diff_pct = ((current - normal) / normal) * 100
-            if diff_pct > 10:
-                comparisons.append(f"latency {diff_pct:.1f}% above normal")
-            elif diff_pct < -10:
-                comparisons.append(f"latency {abs(diff_pct):.1f}% below normal")
-    
+            if diff_pct > 20:
+                comparisons.append(f"avg order quantity {diff_pct:.1f}% above baseline ({current:.0f} vs {normal:.0f})")
+            elif diff_pct < -20:
+                comparisons.append(f"avg order quantity {abs(diff_pct):.1f}% below baseline ({current:.0f} vs {normal:.0f})")
+
+    # error_rate repurposed as non-fill rate
     if baseline.error_rate is not None and "error_rate" in aggregations:
         current = aggregations["error_rate"]
         normal = baseline.error_rate
         if current is not None and current > normal * 1.5:
-            comparisons.append(f"error rate {current:.2%} is elevated (normal: {normal:.2%})")
-    
+            comparisons.append(f"non-fill rate {current:.2%} elevated vs baseline {normal:.2%}")
+
+    # avg_volume repurposed as total orders
     if baseline.avg_volume is not None and "avg_volume" in aggregations:
         current = aggregations["avg_volume"]
         normal = baseline.avg_volume
         if current is not None and normal > 0:
             diff_pct = ((current - normal) / normal) * 100
             if abs(diff_pct) > 20:
-                if diff_pct > 0:
-                    comparisons.append(f"volume {diff_pct:.1f}% above normal")
-                else:
-                    comparisons.append(f"volume {abs(diff_pct):.1f}% below normal")
+                direction = "above" if diff_pct > 0 else "below"
+                comparisons.append(f"order count {abs(diff_pct):.1f}% {direction} baseline ({current:.0f} vs {normal:.0f})")
     
     if comparisons:
         return ", ".join(comparisons)
@@ -164,15 +183,18 @@ def generate_analysis(
                 )
             analysis_result += f"\n\nPer-Symbol Breakdown:\n" + "\n".join(m_lines)
         else:
-            avg_latency = metrics.get("avg_latency_ms") or 0
-            avg_volume = metrics.get("avg_volume") or 0
-            total_volume = metrics.get("total_volume") or 0
-            error_rate = metrics.get("error_rate") or 0
+            total_orders = metrics.get("total_orders") or metrics.get("avg_volume") or 0
+            avg_qty = metrics.get("avg_qty") or metrics.get("avg_latency_ms") or 0
+            total_qty = metrics.get("total_qty") or metrics.get("total_volume") or 0
+            fill_rate = metrics.get("fill_rate") or (1.0 - (metrics.get("error_rate") or 0))
+            buy_orders = metrics.get("buy_orders") or 0
+            sell_orders = metrics.get("sell_orders") or 0
             m_str = (
-                f"Avg Latency: {avg_latency:.2f}ms, "
-                f"Avg Volume: {avg_volume:.2f}, "
-                f"Total Volume: {total_volume}, "
-                f"Error Rate: {error_rate:.2%}"
+                f"Total Orders: {total_orders:.0f}, "
+                f"Avg Qty: {avg_qty:.2f}, "
+                f"Total Qty: {total_qty:.0f}, "
+                f"Fill Rate: {fill_rate:.2%}, "
+                f"Buy: {buy_orders:.0f} / Sell: {sell_orders:.0f}"
             )
             analysis_result += f"\n\nKey Metrics: {m_str}"
     

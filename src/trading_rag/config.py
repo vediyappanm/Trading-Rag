@@ -18,7 +18,9 @@ class ElasticsearchSettings(BaseSettings):
     field_caps_index_pattern: str = Field(default="trading-*")
     esql_limit_default: int = Field(default=500)
     esql_keep_fields: list[str] = Field(default_factory=lambda: [
-        "@timestamp", "message", "symbol", "status", "latency_ms", "volume", "order_id", "venue"
+        "@timestamp", "TradingSymbol", "ticker", "OrdStatus", "QtyToFill",
+        "PriceToFill", "TransType", "ExchSeg", "BrokerId", "Product",
+        "PriceType", "NorenOrdNum", "AcctId", "msg_type"
     ])
 
 
@@ -61,7 +63,7 @@ class APISettings(BaseSettings):
     cache_ttl_seconds: int = Field(default=300)
     cache_bucket_seconds: int = Field(default=300)
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
-    rate_limit_rps: int = Field(default=0)
+    rate_limit_rps: int = Field(default=10)
     cost_budget_max_tokens: int = Field(default=50000)
     cost_budget_max_llm_calls: int = Field(default=6)
     cost_budget_max_usd: float = Field(default=0.15)
