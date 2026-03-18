@@ -158,7 +158,7 @@ async def metrics():
 
 @router.get("/api/stats")
 async def dashboard_stats():
-    """Real-time dashboard statistics from Elasticsearch for the QuantSight UI."""
+    """Real-time dashboard statistics from Elasticsearch for the Finspot Rag UI."""
     index = es_client.get_execution_logs_index()
     time_range = {"start": "2020-01-01T00:00:00", "end": "2030-01-01T00:00:00"}
     _STATUS_MAP = {48: "FILLED", 65: "OPEN", 110: "NEW", 67: "CANCELLED",

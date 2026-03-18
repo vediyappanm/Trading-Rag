@@ -65,7 +65,7 @@ def _parse_esql_result(result: dict[str, Any]) -> tuple[list[LogEntry], dict[str
         return logs, aggregations
 
     # Aggregation style: handle by-symbol or by-exchange metrics
-    group_field = next((f for f in ["ticker", "TradingSymbol", "ExchSeg", "symbol"] if f in col_names), None)
+    group_field = next((f for f in ["ticker", "TradingSymbol", "ExchSeg", "BrokerId", "symbol"] if f in col_names), None)
     if group_field and len(values) > 0:
         grp_idx = col_names.index(group_field)
         by_group: dict[str, dict[str, Any]] = {}
@@ -189,8 +189,13 @@ def retrieve_feed_logs(
     {keep_clause}
     """
     
-    result = execute_esql_query(esql, time_window)
-    logs, _ = _parse_esql_result(result)
+    try:
+        result = execute_esql_query(esql, time_window)
+        logs, _ = _parse_esql_result(result)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Error executing feed logs query: {e}")
+        logs = []
     
     return RetrievedEvidence(
         logs=logs,
@@ -205,7 +210,7 @@ def retrieve_with_aggregation(
     symbol: str | None = None,
 ) -> RetrievedEvidence:
     base_filter = f'@timestamp >= "{time_window.start.isoformat()}" AND @timestamp <= "{time_window.end.isoformat()}"'
-    symbol_filter = f'AND (ticker == "{symbol.upper()}" OR TradingSymbol == "{symbol.upper()}")' if symbol else ""
+    symbol_filter = f'AND (ticker == "{symbol.upper()}" OR STARTS_WITH(TradingSymbol, "{symbol.upper()}"))' if symbol else ""
     by_clause = "BY ticker" if not symbol else ""
 
     esql = f"""
@@ -231,13 +236,14 @@ def retrieve_with_aggregation(
     aggregations: dict[str, Any] = {}
 
     if rows and col_names:
-        if by_clause:
-            # Multi-symbol breakdown
-            ticker_idx = col_names.index("ticker") if "ticker" in col_names else 0
+        # Find group-by column (ticker or TradingSymbol)
+        group_col = next((c for c in ["ticker", "TradingSymbol", "ExchSeg", "BrokerId"] if c in col_names), None)
+        if group_col and len(rows) > 1:
+            grp_idx = col_names.index(group_col)
             by_sym: dict[str, dict[str, Any]] = {}
             for row in rows:
-                sym_key = str(row[ticker_idx])
-                metrics = {col_names[i]: row[i] for i in range(len(col_names)) if i != ticker_idx}
+                sym_key = str(row[grp_idx])
+                metrics = {col_names[i]: row[i] for i in range(len(col_names)) if i != grp_idx}
                 by_sym[sym_key] = metrics
                 by_sym[sym_key].update(_normalize_metrics(metrics))
             aggregations["by_symbol"] = by_sym

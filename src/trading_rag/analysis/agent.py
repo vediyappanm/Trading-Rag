@@ -1,20 +1,33 @@
-ANALYSIS_SYSTEM_PROMPT = """You are a trading log analysis agent for QuantSight, analyzing real NSE/NFO/BSE order data from the Noren OMS (Indian stock broker platform) serving 65+ brokers.
+ANALYSIS_SYSTEM_PROMPT = """You are a trading log analysis agent for Finspot Rag, analyzing real NSE/NFO/BSE order data from the Noren OMS (Indian stock broker platform) serving 65+ brokers.
 
-Data context:
-- OrdStatus: 48=FILLED, 65=OPEN, 110=NEW, 67=CANCELLED, 56=REJECTED
-- TransType: B=Buy, S=Sell
-- ExchSeg: NSE=equity, NFO=F&O, BSE=equity, BFO=BSE F&O, CDS=currency
+Dataset: Jan 20, 2026 — 274,595 orders, 4,380+ symbols, 65 brokers, exchanges: NSE (164,928), NFO (93,003), BSE (14,425), CDS (980), BFO (1,061).
+
+Known OrdStatus codes (stored as integer ASCII values):
+- 48 = FILLED (144,758 orders = 52.72% fill rate)
+- 56 = REJECTED (2,728 orders = 0.99%)
+- 65 = OPEN/ACCEPTED
+- 110 = NEW (pending submission)
+- 67 = CANCELLED (0 in this dataset)
+- 50, 52, 54, 98, 109, 115 = intermediate/pending states (trigger, modify, batch, etc.)
+
+Other fields:
+- TransType: B=Buy (158,735), S=Sell (115,860)
+- ExchSeg: NSE, NFO, BSE, BFO, CDS, NSLB
 - Product: I=Intraday(MIS), C=Delivery(CNC), M=Margin(NRML)
 - PriceToFill is in paise — divide by 100 for rupees (e.g. 23935 = ₹239.35)
 - QtyToFill is order quantity in shares or lots
-- Baseline metrics: avg_latency_ms = avg order quantity, avg_volume = total orders in period, error_rate = non-fill rate
+- ticker field: base symbol for equity (RELIANCE), but for F&O equals full TradingSymbol (e.g. NIFTY20JAN26F)
 
 Guidelines:
 - Only use evidence from the retrieved logs and aggregations
 - State prices in rupees (₹) after converting from paise
+- The true overall fill rate is 52.72% (144758/274595) — use this as baseline
 - Include baseline comparisons when available
 - Cite order IDs (NorenOrdNum) or timestamps as evidence
-- Be concise and factual — this is used by trading operations teams"""
+- Be concise and factual — this is used by trading operations teams
+- If asked to compare execution vs feed data but only execution data is available, provide the
+  execution analysis and state "Feed log data is not available in the current dataset" — do NOT abstain
+- Always answer with available data; only say "Insufficient evidence" if there is literally no data at all"""
 
 ANALYSIS_USER_PROMPT = """Generate an answer to this trading log question:
 
@@ -41,13 +54,15 @@ from trading_rag.models import AnalysisOutput, RetrievedEvidence, BaselineStats
 
 def format_evidence(evidence: RetrievedEvidence) -> str:
     lines = []
-    
+    STATUS_MAP = {48: "FILLED", 65: "OPEN", 110: "NEW", 67: "CANCELLED", 56: "REJECTED",
+                  50: "TRIGGER_PENDING", 52: "MODIFIED", 54: "MODIFY_PENDING", 98: "BATCH",
+                  109: "MODIFIED_2", 115: "SUSPENDED"}
+
     if evidence.logs:
         lines.append(f"Found {len(evidence.logs)} order entries:")
         for log in evidence.logs[:5]:
             extra = log.fields
-            status_map = {48: "FILLED", 65: "OPEN", 110: "NEW", 67: "CANCELLED", 56: "REJECTED"}
-            status = status_map.get(extra.get("OrdStatus"), str(extra.get("OrdStatus", "")))
+            status = STATUS_MAP.get(extra.get("OrdStatus"), str(extra.get("OrdStatus", "")))
             price_paise = extra.get("PriceToFill", 0)
             price_rs = f"₹{price_paise/100:.2f}" if price_paise else ""
             lines.append(
@@ -55,15 +70,58 @@ def format_evidence(evidence: RetrievedEvidence) -> str:
                 f"| {extra.get('TransType','?')} {extra.get('QtyToFill','?')} {price_rs} "
                 f"| {status} | {extra.get('ExchSeg','?')} | {log.timestamp}"
             )
-    
+
     if evidence.aggregations:
-        lines.append("\nAggregations:")
-        for key, value in evidence.aggregations.items():
-            lines.append(f"  - {key}: {value}")
-    
+        agg = evidence.aggregations
+        # Grouped results (by symbol/broker/exchange)
+        if "by_symbol" in agg:
+            group_data = agg["by_symbol"]
+            lines.append(f"\nGrouped results ({len(group_data)} groups):")
+            for grp, metrics in list(group_data.items())[:20]:
+                # Format key metrics compactly
+                parts = []
+                for k, v in metrics.items():
+                    if k.startswith("avg_") or k.startswith("total_") or k in (
+                        "fill_rate", "reject_rate", "cancel_rate",
+                        "rejected_orders", "filled_orders", "buy_orders", "sell_orders",
+                        "cancelled_orders", "total_orders",
+                    ):
+                        if isinstance(v, float):
+                            if k.endswith("rate"):
+                                parts.append(f"{k}={v:.2%}")
+                            else:
+                                parts.append(f"{k}={v:.0f}")
+                        elif v is not None:
+                            parts.append(f"{k}={v}")
+                lines.append(f"  {grp}: {', '.join(parts)}")
+        else:
+            # Flat aggregation
+            lines.append("\nAggregated metrics:")
+            scalar_keys = [
+                "total_orders", "filled", "fill_rate", "rejected", "reject_rate",
+                "cancelled", "cancel_rate", "open_orders", "new_orders",
+                "buy_orders", "sell_orders", "avg_qty", "total_qty",
+                "rejected_orders", "cancelled_orders",
+            ]
+            for k in scalar_keys:
+                if k in agg and agg[k] is not None:
+                    v = agg[k]
+                    if k.endswith("rate") and isinstance(v, float):
+                        lines.append(f"  {k}: {v:.2%}")
+                    elif isinstance(v, float):
+                        lines.append(f"  {k}: {v:.2f}")
+                    else:
+                        lines.append(f"  {k}: {v}")
+            # Any remaining non-metadata keys
+            skip = set(scalar_keys) | {"avg_latency_ms", "avg_volume", "error_rate",
+                                        "p95_latency_ms", "total_count", "total_volume"}
+            for k, v in agg.items():
+                if k not in skip and not isinstance(v, (dict, list)) and v is not None:
+                    lines.append(f"  {k}: {v}")
+
     if not lines:
         lines.append("No evidence retrieved")
-    
+
     return "\n".join(lines)
 
 
@@ -167,42 +225,64 @@ def generate_analysis(
     except Exception:
         pass
     
-    analysis_result = "Analysis complete based on retrieved evidence."
-    if baseline_comparison:
-        analysis_result += f"\n\nBaseline Comparison: {baseline_comparison}."
-    
-    if evidence.aggregations:
-        metrics = evidence.aggregations
-        if "detected_symbols" in metrics:
-            m_lines = []
-            for sym in metrics["detected_symbols"]:
-                sym_m = metrics.get(f"{sym}_metrics", {})
-                m_lines.append(
-                    f"**{sym}**: Avg Latency: {sym_m.get('avg_latency_ms', 0):.2f}ms, "
-                    f"Error Rate: {sym_m.get('error_rate', 0):.2%}"
-                )
-            analysis_result += f"\n\nPer-Symbol Breakdown:\n" + "\n".join(m_lines)
-        else:
-            total_orders = metrics.get("total_orders") or metrics.get("avg_volume") or 0
-            avg_qty = metrics.get("avg_qty") or metrics.get("avg_latency_ms") or 0
-            total_qty = metrics.get("total_qty") or metrics.get("total_volume") or 0
-            fill_rate = metrics.get("fill_rate") or (1.0 - (metrics.get("error_rate") or 0))
-            buy_orders = metrics.get("buy_orders") or 0
-            sell_orders = metrics.get("sell_orders") or 0
-            m_str = (
-                f"Total Orders: {total_orders:.0f}, "
-                f"Avg Qty: {avg_qty:.2f}, "
-                f"Total Qty: {total_qty:.0f}, "
-                f"Fill Rate: {fill_rate:.2%}, "
-                f"Buy: {buy_orders:.0f} / Sell: {sell_orders:.0f}"
-            )
-            analysis_result += f"\n\nKey Metrics: {m_str}"
-    
     if not evidence.logs and not evidence.aggregations:
         if isinstance(evidence.query_used, str) and evidence.query_used.startswith("unavailable"):
-            analysis_result = "Data sources are temporarily unavailable, so no logs or metrics could be retrieved."
+            analysis_result = "Data sources are temporarily unavailable. Please try again."
         else:
-            analysis_result = "No matching trading logs or metrics found for the specified period."
+            analysis_result = "No matching trading data found for that query."
+        return AnalysisOutput(answer=analysis_result, citations=[])
+
+    metrics = evidence.aggregations
+    analysis_result = ""
+
+    # Grouped results (by broker / symbol / exchange)
+    if "by_symbol" in metrics:
+        group_data = metrics["by_symbol"]
+        top = sorted(group_data.items(),
+                     key=lambda x: x[1].get("rejected_orders") or x[1].get("total_orders") or 0,
+                     reverse=True)
+        lines = []
+        for grp, m in top[:10]:
+            parts = []
+            for k in ("total_orders", "rejected_orders", "filled_orders", "fill_rate",
+                      "reject_rate", "buy_orders", "sell_orders", "cancelled_orders"):
+                v = m.get(k)
+                if v is not None:
+                    if k.endswith("rate") and isinstance(v, float):
+                        parts.append(f"{k.replace('_', ' ')}={v:.2%}")
+                    else:
+                        parts.append(f"{k.replace('_', ' ')}={int(v) if isinstance(v, float) else v}")
+            lines.append(f"  **{grp}**: {', '.join(parts)}")
+        analysis_result = f"Results ({len(group_data)} groups):\n\n" + "\n".join(lines)
+
+    # Flat aggregate (single row result)
+    elif metrics:
+        total_orders = metrics.get("total_orders") or 0
+        filled = metrics.get("filled") or 0
+        rejected = metrics.get("rejected") or metrics.get("rejected_orders") or 0
+        cancelled = metrics.get("cancelled") or metrics.get("cancelled_orders") or 0
+        open_o = metrics.get("open_orders") or 0
+        new_o = metrics.get("new_orders") or 0
+        fill_rate = metrics.get("fill_rate") or 0
+        buy_orders = metrics.get("buy_orders") or 0
+        sell_orders = metrics.get("sell_orders") or 0
+        reject_rate = metrics.get("reject_rate") or (rejected / total_orders if total_orders else 0)
+
+        parts = [f"Total orders: **{int(total_orders):,}**"]
+        if filled:   parts.append(f"Filled: {int(filled):,} ({fill_rate:.1%})")
+        if rejected: parts.append(f"Rejected: {int(rejected):,} ({reject_rate:.2%})")
+        # Show cancelled even if 0 — "0 cancelled" is a valid, informative answer
+        cancel_asked = any(kw in question.lower() for kw in ("cancel", "cancelled"))
+        if cancelled or cancel_asked:
+            parts.append(f"Cancelled: {int(cancelled):,}")
+        if open_o:   parts.append(f"Open: {int(open_o):,}")
+        if new_o:    parts.append(f"New/Pending: {int(new_o):,}")
+        if buy_orders and sell_orders:
+            parts.append(f"Buy: {int(buy_orders):,} / Sell: {int(sell_orders):,}")
+        analysis_result = ", ".join(parts) + "."
+
+    if baseline_comparison:
+        analysis_result += f"\n\nBaseline: {baseline_comparison}"
 
     return AnalysisOutput(
         answer=analysis_result,

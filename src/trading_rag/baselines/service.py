@@ -17,21 +17,18 @@ def get_baseline(symbol: str | None, hour: int) -> BaselineStats | None:
 
 
 def fetch_baseline_from_es(symbol: str | None, hour: int) -> BaselineStats | None:
-    # Use last 30 days at the same hour for a meaningful baseline
+    # Use last 365 days to cover all ingested historical data (e.g. Jan 2026 data)
     now = datetime.utcnow()
-    thirty_days_ago = now - timedelta(days=30)
+    one_year_ago = now - timedelta(days=365)
 
     symbol_filter = f'AND (ticker == "{symbol.upper()}" OR TradingSymbol == "{symbol.upper()}")' if symbol else ""
 
-    # DATE_EXTRACT hour filter + 30-day window gives true historical baseline
     esql = f"""
     FROM "{es_client.get_execution_logs_index()}"
-    | WHERE @timestamp >= "{thirty_days_ago.isoformat()}"
+    | WHERE @timestamp >= "{one_year_ago.isoformat()}"
       AND @timestamp <= "{now.isoformat()}"
       AND msg_type == "ordupd"
       {symbol_filter}
-    | EVAL hour_of_day = DATE_EXTRACT("HOUR_OF_DAY", @timestamp)
-    | WHERE hour_of_day == {hour}
     | STATS avg_qty = AVG(QtyToFill),
             total_orders = COUNT(),
             fill_rate = AVG(CASE(OrdStatus == 48, 1.0, 0.0)),
@@ -40,7 +37,7 @@ def fetch_baseline_from_es(symbol: str | None, hour: int) -> BaselineStats | Non
     """
 
     try:
-        result = es_client.execute_esql(esql, {"start": thirty_days_ago.isoformat(), "end": now.isoformat()})
+        result = es_client.execute_esql(esql, {"start": one_year_ago.isoformat(), "end": now.isoformat()})
 
         if result.get("values") and len(result["values"]) > 0:
             columns = result.get("columns", [])

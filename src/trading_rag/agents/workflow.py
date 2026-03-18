@@ -96,10 +96,15 @@ def should_continue(state: AgentState) -> str:
 
 
 def router_node(state: AgentState) -> AgentState:
+    import logging
+    logger = logging.getLogger(__name__)
     question = state["question"]
     with Timer("workflow.router"):
-        # Switch to LLM-based router for better intent detection
-        router_output = route_query_llm(question)
+        try:
+            router_output = route_query_llm(question)
+        except Exception as exc:
+            logger.warning(f"LLM router failed ({exc}), falling back to regex router")
+            router_output = route_query(question)
         state["router_output"] = router_output
         state["query_type"] = router_output.query_type
         state["esql_query"] = router_output.esql_query
@@ -138,12 +143,12 @@ async def retrieval_node(state: AgentState) -> AgentState:
             METRICS.inc("workflow.semantic_cache_hit")
             return state
     
-    # Ensure we have a valid time window
+    # Ensure we have a valid time window — always 365d to cover all historical data
     time_window = router_output.time_window
     if time_window is None:
         current_time = datetime.utcnow()
         time_window = TimeWindow(
-            start=current_time - timedelta(hours=24),
+            start=current_time - timedelta(days=365),
             end=current_time,
         )
     

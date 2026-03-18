@@ -24,6 +24,11 @@ def retrieve_evidence(
         return retrieve_execution_logs(time_window, symbol)
     
     elif query_path == QueryPath.DUAL_INDEX_CORRELATION:
+        # Prefer the generated ESQL query (buy/sell aggregation) when available — it gives
+        # aggregated volume data that the analysis agent can reason about. Fall back to
+        # correlate_execution_and_feed only when no structured query was generated.
+        if esql_query:
+            return retrieve_with_esql_query(esql_query, time_window, QueryPath.DUAL_INDEX_CORRELATION)
         return correlate_execution_and_feed(time_window, symbol)
     
     elif query_path == QueryPath.SEMANTIC_INCIDENT:

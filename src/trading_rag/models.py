@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import Enum
 from typing import Any
-from pydantic import BaseModel, Field
+import json as _json
+from pydantic import BaseModel, Field, field_validator
 
 
 class QueryPath(str, Enum):
@@ -63,6 +64,26 @@ class AnalysisOutput(BaseModel):
     answer: str
     baseline_comparison: str | None = None
     citations: list[str] = Field(default_factory=list)
+
+    @field_validator("citations", mode="before")
+    @classmethod
+    def coerce_citations(cls, v: object) -> list[str]:
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return [str(x) for x in v if x is not None]
+        if isinstance(v, str):
+            s = v.strip()
+            if s.lower() in ("none", "null", "n/a", ""):
+                return []
+            try:
+                parsed = _json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(x) for x in parsed]
+            except Exception:
+                pass
+            return [s]
+        return []
 
 
 class ReflectionOutput(BaseModel):

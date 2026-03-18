@@ -3,24 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QuantSight</title>
+  <title>Finspot Rag</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root {
-      --bg:          #0d0d0d;
-      --surface:     #171717;
-      --surface-2:   #1f1f1f;
-      --border:      #2a2a2a;
-      --border-light:#333;
-      --text:        #e5e5e5;
-      --text-dim:    #737373;
-      --text-faint:  #404040;
-      --accent:      #e07b39;
-      --accent-dim:  rgba(224,123,57,0.12);
-      --user-bg:     #1f1f1f;
-      --bot-bg:      transparent;
+      --bg:          #0a0a0a;
+      --surface:     #141414;
+      --surface-2:   #1c1c1c;
+      --surface-3:   #222;
+      --border:      #252525;
+      --border-2:    #2e2e2e;
+      --text:        #ececec;
+      --text-dim:    #6b6b6b;
+      --text-faint:  #3a3a3a;
+      --accent:      #cc785c;
+      --accent-glow: rgba(204,120,92,0.15);
+      --green:       #4ade80;
+      --yellow:      #fbbf24;
+      --red:         #f87171;
+      --blue:        #60a5fa;
+      --code-bg:     #161616;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -32,6 +37,7 @@
       flex-direction: column;
       height: 100vh;
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── HEADER ── */
@@ -39,51 +45,77 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px;
-      height: 56px;
+      padding: 0 20px;
+      height: 52px;
       border-bottom: 1px solid var(--border);
       background: var(--bg);
       flex-shrink: 0;
+      z-index: 10;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
     }
     .brand-icon {
-      width: 28px; height: 28px;
+      width: 26px; height: 26px;
       background: var(--accent);
-      border-radius: 6px;
+      border-radius: 5px;
       display: flex; align-items: center; justify-content: center;
     }
     .brand-name {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 600;
-      letter-spacing: 0.01em;
+      letter-spacing: 0.02em;
       color: var(--text);
     }
 
     .header-right {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
+    }
+
+    .new-chat-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border: 1px solid var(--border-2);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.73rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .new-chat-btn:hover { color: var(--text); border-color: var(--border-2); }
+
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
     }
     .status-dot {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.72rem;
+      gap: 5px;
+      font-size: 0.68rem;
       color: var(--text-dim);
       font-family: 'JetBrains Mono', monospace;
     }
     .dot {
-      width: 6px; height: 6px;
+      width: 5px; height: 5px;
       border-radius: 50%;
-      background: #4ade80;
-      box-shadow: 0 0 6px #4ade80;
+      background: var(--green);
+      box-shadow: 0 0 5px var(--green);
     }
-    .dot.offline { background: #f87171; box-shadow: 0 0 6px #f87171; }
+    .dot.offline { background: var(--red); box-shadow: 0 0 5px var(--red); }
 
     /* ── MAIN CHAT AREA ── */
     .chat-wrap {
@@ -91,13 +123,13 @@
       overflow-y: auto;
       scroll-behavior: smooth;
     }
-    .chat-wrap::-webkit-scrollbar { width: 4px; }
-    .chat-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .chat-wrap::-webkit-scrollbar { width: 3px; }
+    .chat-wrap::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
 
     .chat-inner {
-      max-width: 760px;
+      max-width: 720px;
       margin: 0 auto;
-      padding: 32px 24px 16px;
+      padding: 28px 20px 12px;
     }
 
     /* ── WELCOME ── */
@@ -106,57 +138,58 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
-      padding: 48px 0 40px;
+      padding: 56px 0 44px;
     }
     .welcome-logo {
-      width: 48px; height: 48px;
+      width: 44px; height: 44px;
       background: var(--accent);
-      border-radius: 12px;
+      border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     .welcome h1 {
-      font-size: 1.5rem;
+      font-size: 1.45rem;
       font-weight: 600;
       color: var(--text);
       margin-bottom: 8px;
+      letter-spacing: -0.01em;
     }
     .welcome p {
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       color: var(--text-dim);
-      max-width: 440px;
-      line-height: 1.6;
+      max-width: 400px;
+      line-height: 1.65;
       margin-bottom: 36px;
     }
 
     .suggestions {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
-      max-width: 580px;
+      max-width: 540px;
     }
     .sug {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 16px;
+      border-radius: 8px;
+      padding: 12px 14px;
       text-align: left;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
     }
     .sug:hover {
-      border-color: var(--border-light);
+      border-color: var(--border-2);
       background: var(--surface-2);
     }
     .sug-title {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 500;
       color: var(--text);
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
     .sug-desc {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--text-dim);
       line-height: 1.4;
     }
@@ -164,159 +197,300 @@
     /* ── MESSAGES ── */
     .msg {
       display: flex;
-      gap: 14px;
-      padding: 20px 0;
+      gap: 13px;
+      padding: 18px 0;
       border-bottom: 1px solid var(--border);
-      animation: fadein 0.2s ease;
+      animation: fadein 0.18s ease;
+      position: relative;
     }
     .msg:last-child { border-bottom: none; }
-    @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadein { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
 
     .msg-avatar {
-      width: 28px; height: 28px;
-      border-radius: 6px;
+      width: 26px; height: 26px;
+      border-radius: 5px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
-      margin-top: 2px;
-      font-size: 0.7rem;
+      margin-top: 1px;
+      font-size: 0.65rem;
       font-weight: 600;
+      letter-spacing: 0.02em;
     }
-    .msg-avatar.user {
-      background: #2563eb;
-      color: white;
-    }
-    .msg-avatar.bot {
-      background: var(--accent);
-      color: white;
-    }
+    .msg-avatar.user { background: #2563eb; color: white; }
+    .msg-avatar.bot  { background: var(--accent); color: white; }
 
     .msg-body { flex: 1; min-width: 0; }
+
+    .msg-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
     .msg-name {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 600;
       color: var(--text-dim);
-      margin-bottom: 6px;
     }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 7px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-faint);
+      font-size: 0.65rem;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .msg:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--text-dim); }
+
+    /* ── MARKDOWN CONTENT ── */
     .msg-text {
-      font-size: 0.9rem;
-      line-height: 1.7;
+      font-size: 0.875rem;
+      line-height: 1.75;
       color: var(--text);
-      white-space: pre-wrap;
       word-break: break-word;
     }
-    .msg-text.error { color: #f87171; }
+    .msg-text.error { color: var(--red); }
+
+    .msg-text p { margin-bottom: 10px; }
+    .msg-text p:last-child { margin-bottom: 0; }
+    .msg-text h1, .msg-text h2, .msg-text h3 {
+      font-weight: 600;
+      margin: 16px 0 6px;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .msg-text h1 { font-size: 1.05rem; }
+    .msg-text h2 { font-size: 0.95rem; }
+    .msg-text h3 { font-size: 0.875rem; }
+    .msg-text ul, .msg-text ol {
+      padding-left: 20px;
+      margin-bottom: 10px;
+    }
+    .msg-text li { margin-bottom: 3px; }
+    .msg-text strong { font-weight: 600; color: var(--text); }
+    .msg-text em { font-style: italic; color: var(--text-dim); }
+    .msg-text a { color: var(--accent); text-decoration: none; }
+    .msg-text a:hover { text-decoration: underline; }
+
+    .msg-text code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #e2b96f;
+    }
+    .msg-text pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 10px 0;
+      position: relative;
+    }
+    .msg-text pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #cdd6f4;
+      font-size: 0.78rem;
+      line-height: 1.65;
+    }
+    .msg-text table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 0.82rem;
+    }
+    .msg-text th {
+      text-align: left;
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border-2);
+      color: var(--text-dim);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .msg-text td {
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .msg-text tr:last-child td { border-bottom: none; }
+    .msg-text hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 14px 0;
+    }
+    .msg-text blockquote {
+      border-left: 3px solid var(--border-2);
+      padding-left: 12px;
+      color: var(--text-dim);
+      margin: 10px 0;
+    }
 
     /* metadata row */
     .msg-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 5px;
       margin-top: 12px;
     }
     .chip {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.65rem;
-      padding: 2px 8px;
+      font-size: 0.62rem;
+      padding: 2px 7px;
       border-radius: 4px;
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text-dim);
     }
-    .chip.green { color: #4ade80; border-color: rgba(74,222,128,0.2); background: rgba(74,222,128,0.06); }
-    .chip.yellow { color: #fbbf24; border-color: rgba(251,191,36,0.2); background: rgba(251,191,36,0.06); }
-    .chip.red { color: #f87171; border-color: rgba(248,113,113,0.2); background: rgba(248,113,113,0.06); }
+    .chip.green  { color: var(--green);  border-color: rgba(74,222,128,0.18); background: rgba(74,222,128,0.05); }
+    .chip.yellow { color: var(--yellow); border-color: rgba(251,191,36,0.18); background: rgba(251,191,36,0.05); }
+    .chip.red    { color: var(--red);    border-color: rgba(248,113,113,0.18); background: rgba(248,113,113,0.05); }
+    .chip.blue   { color: var(--blue);   border-color: rgba(96,165,250,0.18);  background: rgba(96,165,250,0.05); }
 
     .citations {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 4px;
       margin-top: 8px;
     }
     .cit {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.62rem;
+      font-size: 0.6rem;
       padding: 1px 6px;
       border-radius: 3px;
-      background: rgba(224,123,57,0.08);
-      border: 1px solid rgba(224,123,57,0.2);
+      background: var(--accent-glow);
+      border: 1px solid rgba(204,120,92,0.2);
       color: var(--accent);
     }
 
     /* ── THINKING ── */
-    .thinking-body { display: flex; flex-direction: column; gap: 8px; }
+    .thinking-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
     .think-row {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.8rem;
       color: var(--text-faint);
+      padding: 3px 0;
       transition: color 0.2s;
     }
-    .think-row.active { color: var(--text); }
-    .think-row.done   { color: #4ade80; }
-    .think-row.active .think-icon { animation: spin 0.7s linear infinite; }
-    .think-icon {
-      width: 14px; height: 14px;
+    .think-row.active { color: var(--text-dim); }
+    .think-row.done   { color: var(--green); }
+
+    .think-spinner {
+      width: 12px; height: 12px;
       border: 1.5px solid currentColor;
       border-top-color: transparent;
       border-radius: 50%;
       flex-shrink: 0;
     }
-    .think-row.done .think-icon { animation: none; border: none; }
-    .think-row.done .think-icon::after { content: '✓'; font-size: 0.7rem; }
+    .think-row.active .think-spinner { animation: spin 0.65s linear infinite; }
+    .think-row.done .think-spinner {
+      animation: none;
+      border: none;
+      width: 12px; height: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .think-row.done .think-spinner::after {
+      content: '✓';
+      font-size: 0.68rem;
+      line-height: 1;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── STREAMING CURSOR ── */
+    .cursor {
+      display: inline-block;
+      width: 2px; height: 14px;
+      background: var(--text-dim);
+      border-radius: 1px;
+      animation: blink 1s steps(1) infinite;
+      vertical-align: text-bottom;
+      margin-left: 1px;
+    }
+    @keyframes blink { 0%,49% { opacity:1; } 50%,100% { opacity:0; } }
 
     /* ── INPUT ── */
     .input-zone {
       flex-shrink: 0;
       border-top: 1px solid var(--border);
       background: var(--bg);
-      padding: 16px 24px 20px;
+      padding: 14px 20px 18px;
     }
     .input-inner {
-      max-width: 760px;
+      max-width: 720px;
       margin: 0 auto;
       position: relative;
     }
     .input-box {
       width: 100%;
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 52px 14px 16px;
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      padding: 13px 48px 13px 15px;
       color: var(--text);
       font-family: 'Inter', sans-serif;
-      font-size: 0.9rem;
+      font-size: 0.875rem;
       line-height: 1.5;
       resize: none;
       outline: none;
-      min-height: 50px;
+      min-height: 48px;
       max-height: 160px;
       overflow-y: auto;
       transition: border-color 0.15s;
     }
     .input-box::placeholder { color: var(--text-faint); }
-    .input-box:focus { border-color: var(--border-light); }
+    .input-box:focus { border-color: rgba(204,120,92,0.4); }
 
     .send-btn {
       position: absolute;
-      right: 10px;
-      bottom: 10px;
-      width: 32px; height: 32px;
+      right: 9px;
+      bottom: 9px;
+      width: 30px; height: 30px;
       background: var(--accent);
       border: none;
-      border-radius: 8px;
+      border-radius: 7px;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: opacity 0.15s, transform 0.1s;
     }
-    .send-btn:hover { opacity: 0.88; }
-    .send-btn:active { transform: scale(0.95); }
-    .send-btn:disabled { background: var(--border); cursor: not-allowed; }
+    .send-btn:hover { opacity: 0.85; }
+    .send-btn:active { transform: scale(0.94); }
+    .send-btn:disabled { background: var(--border-2); cursor: not-allowed; }
 
     .input-hint {
       text-align: center;
-      font-size: 0.7rem;
+      font-size: 0.67rem;
       color: var(--text-faint);
-      margin-top: 8px;
+      margin-top: 7px;
+      letter-spacing: 0.01em;
+    }
+    .input-hint kbd {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0px 4px;
+      font-size: 0.62rem;
     }
   </style>
 </head>
@@ -325,16 +499,22 @@
 <header>
   <div class="brand">
     <div class="brand-icon">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
         <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
         <polyline points="16 7 22 7 22 13"/>
       </svg>
     </div>
-    <span class="brand-name">QuantSight</span>
+    <span class="brand-name">Finspot Rag</span>
   </div>
   <div class="header-right">
-    <div class="status-dot"><div class="dot" id="es-dot"></div> <span id="es-label">ELK</span></div>
-    <div class="status-dot"><div class="dot" id="rd-dot"></div> <span id="rd-label">Redis</span></div>
+    <button class="new-chat-btn" onclick="newChat()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New chat
+    </button>
+    <div class="status-group">
+      <div class="status-dot"><div class="dot" id="es-dot"></div><span id="es-label">ELK</span></div>
+      <div class="status-dot"><div class="dot" id="rd-dot"></div><span id="rd-label">Redis</span></div>
+    </div>
   </div>
 </header>
 
@@ -343,7 +523,7 @@
 
     <div class="welcome" id="welcome">
       <div class="welcome-logo">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2">
           <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
           <polyline points="16 7 22 7 22 13"/>
         </svg>
@@ -382,16 +562,22 @@
       rows="1"
     ></textarea>
     <button class="send-btn" id="send-btn" title="Send">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="19" x2="12" y2="5"/>
         <polyline points="5 12 12 5 19 12"/>
       </svg>
     </button>
   </div>
-  <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+  <div class="input-hint"><kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line</div>
 </div>
 
 <script>
+// Configure marked
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
+
 const chatWrap  = document.getElementById('chat-wrap');
 const chatInner = document.getElementById('chat-inner');
 const input     = document.getElementById('input');
@@ -403,6 +589,16 @@ input.addEventListener('input', () => {
   input.style.height = 'auto';
   input.style.height = Math.min(input.scrollHeight, 160) + 'px';
 });
+
+// ── new chat ──
+function newChat() {
+  // Remove all messages except welcome
+  const msgs = chatInner.querySelectorAll('.msg');
+  msgs.forEach(m => m.remove());
+  welcome.style.display = '';
+  input.value = '';
+  input.style.height = 'auto';
+}
 
 // ── suggest click ──
 function suggest(text) {
@@ -418,13 +614,15 @@ function scrollBottom() {
 
 // ── add user message ──
 function addUser(text) {
-  if (welcome) welcome.style.display = 'none';
+  welcome.style.display = 'none';
   const el = document.createElement('div');
   el.className = 'msg';
   el.innerHTML = `
     <div class="msg-avatar user">You</div>
     <div class="msg-body">
-      <div class="msg-name">You</div>
+      <div class="msg-header">
+        <div class="msg-name">You</div>
+      </div>
       <div class="msg-text">${escHtml(text)}</div>
     </div>`;
   chatInner.appendChild(el);
@@ -439,13 +637,9 @@ function addThinking() {
   el.innerHTML = `
     <div class="msg-avatar bot">QS</div>
     <div class="msg-body">
-      <div class="msg-name">QuantSight</div>
-      <div class="thinking-body">
-        <div class="think-row active" id="t1"><div class="think-icon"></div>Analysing intent</div>
-        <div class="think-row" id="t2"><div class="think-icon"></div>Security check</div>
-        <div class="think-row" id="t3"><div class="think-icon"></div>Retrieving data</div>
-        <div class="think-row" id="t4"><div class="think-icon"></div>Synthesising</div>
-        <div class="think-row" id="t5"><div class="think-icon"></div>Verifying</div>
+      <div class="msg-header"><div class="msg-name">Finspot Rag</div></div>
+      <div class="thinking-wrap">
+        <div class="think-row active"><div class="think-spinner"></div>Thinking...</div>
       </div>
     </div>`;
   chatInner.appendChild(el);
@@ -455,48 +649,76 @@ function addThinking() {
 
 function stepTo(id) {
   document.querySelectorAll('.think-row.active').forEach(r => {
-    r.classList.remove('active'); r.classList.add('done');
+    r.classList.remove('active');
+    r.classList.add('done');
   });
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
 }
 
+// ── typewriter effect ──
+function typewrite(el, text, onDone) {
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  let i = 0;
+  const chunk = 6; // chars per frame
+  function tick() {
+    i = Math.min(i + chunk, text.length);
+    // Render markdown on full text up to i
+    const partial = text.slice(0, i);
+    el.innerHTML = marked.parse(partial);
+    el.appendChild(cursor);
+    scrollBottom();
+    if (i < text.length) {
+      requestAnimationFrame(tick);
+    } else {
+      cursor.remove();
+      if (onDone) onDone();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
 // ── add final response ──
 function addResponse(res) {
-  const conf = (res.confidence || 'medium').toLowerCase();
-  const confClass = conf === 'high' ? 'green' : conf === 'medium' ? 'yellow' : 'red';
-
-  let metaHtml = `<div class="msg-meta">
-    <span class="chip ${confClass}">${conf.toUpperCase()}</span>
-    <span class="chip">${res.processing_time_ms || res.latency_ms || 0} ms</span>`;
-  if (res.cost_usd != null) metaHtml += `<span class="chip">$${(res.cost_usd||0).toFixed(5)}</span>`;
-  if (res.groundedness_score != null) metaHtml += `<span class="chip">ground ${(res.groundedness_score||0).toFixed(2)}</span>`;
-  if (res.from_cache) metaHtml += `<span class="chip">cached</span>`;
-  metaHtml += '</div>';
-
   let citeHtml = '';
-  const cits = res.citations || [];
+  const cits = (res.citations || []).filter(c => {
+    const id = typeof c === 'string' ? c : (c.log_id || '');
+    return !id.startsWith('agg:');
+  });
   if (cits.length) {
-    citeHtml = '<div class="citations">' +
-      cits.slice(0,8).map(c => {
-        const id = typeof c === 'string' ? c : (c.log_id || '');
-        return `<span class="cit">LOG:${id.slice(-8)}</span>`;
-      }).join('') +
-      (cits.length > 8 ? `<span class="cit">+${cits.length-8}</span>` : '') +
-      '</div>';
+    const shown = cits.slice(0, 8).map(c => {
+      const id = typeof c === 'string' ? c : (c.log_id || '');
+      return `<span class="cit">LOG:${id.slice(-8)}</span>`;
+    }).join('');
+    const more = cits.length > 8 ? `<span class="cit">+${cits.length - 8}</span>` : '';
+    citeHtml = `<div class="citations">${shown}${more}</div>`;
   }
+
+  const answerText = res.answer || res.message || '';
 
   const el = document.createElement('div');
   el.className = 'msg';
   el.innerHTML = `
     <div class="msg-avatar bot">QS</div>
     <div class="msg-body">
-      <div class="msg-name">QuantSight</div>
-      <div class="msg-text">${escHtml(res.answer || res.message || '')}</div>
-      ${metaHtml}
+      <div class="msg-header">
+        <div class="msg-name">Finspot Rag</div>
+        <button class="copy-btn" onclick="copyMsg(this, ${JSON.stringify(answerText).replace(/</g,'\\u003c')})">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+      </div>
+      <div class="msg-text" id="answer-text"></div>
       ${citeHtml}
     </div>`;
   chatInner.appendChild(el);
+  scrollBottom();
+
+  // Instant render
+  const textEl = el.querySelector('#answer-text');
+  textEl.removeAttribute('id');
+  textEl.innerHTML = marked.parse(answerText);
   scrollBottom();
 }
 
@@ -506,11 +728,21 @@ function addError(msg) {
   el.innerHTML = `
     <div class="msg-avatar bot">QS</div>
     <div class="msg-body">
-      <div class="msg-name">QuantSight</div>
+      <div class="msg-header"><div class="msg-name">Finspot Rag</div></div>
       <div class="msg-text error">${escHtml(msg)}</div>
     </div>`;
   chatInner.appendChild(el);
   scrollBottom();
+}
+
+// ── copy message ──
+function copyMsg(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => {
+      btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 1500);
+  });
 }
 
 // ── submit ──
@@ -524,13 +756,13 @@ async function submit() {
   addUser(q);
   const thinkEl = addThinking();
 
-  let stepIdx = 1;
+  let stepIdx = 0;
   const STEPS = ['t1','t2','t3','t4','t5'];
   const autoStep = setInterval(() => {
     stepIdx++;
     if (stepIdx < STEPS.length) stepTo(STEPS[stepIdx]);
     else clearInterval(autoStep);
-  }, 1400);
+  }, 1500);
 
   try {
     const resp = await fetch('/ask/stream', {
@@ -555,10 +787,11 @@ async function submit() {
         if (!tl.startsWith('data: ')) continue;
         try {
           const d = JSON.parse(tl.slice(6));
-          if (d.router_output)    stepTo('t2');
-          else if (d.evidence)    stepTo('t3');
-          else if (d.analysis)    stepTo('t4');
-          else if (d.evaluation)  stepTo('t5');
+          if (d.router_output)   stepTo('t2');
+          else if (d.evidence)   stepTo('t3');
+          else if (d.analysis)   stepTo('t4');
+          else if (d.evaluation) stepTo('t5');
+
           if (d.final_response || d.type === 'cache_hit') {
             clearInterval(autoStep);
             thinkEl.remove();
@@ -605,7 +838,10 @@ setInterval(checkHealth, 15000);
 
 // ── util ──
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
 }
 </script>
 </body>

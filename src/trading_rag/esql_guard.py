@@ -107,9 +107,14 @@ class ESQLGuard:
         fields = self._extract_fields(query)
         if not fields:
             return set()
+        # Use the specific index from the FROM clause, not the wildcard pattern.
+        # The wildcard (trading-*) matches feed + execution indices which have different
+        # field types — using it causes false-positive conflicts on exchange queries.
+        from_match = re.search(r'FROM\s+"([^"]+)"', query, re.IGNORECASE)
+        index = from_match.group(1) if from_match else settings.elasticsearch.field_caps_index_pattern
         try:
             caps = self._es.client.field_caps(
-                index=settings.elasticsearch.field_caps_index_pattern,
+                index=index,
                 fields=",".join(sorted(fields)),
             )
         except Exception:

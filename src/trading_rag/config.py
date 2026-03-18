@@ -7,7 +7,7 @@ class ElasticsearchSettings(BaseSettings):
     username: str = Field(default="elastic")
     password: str = Field(default="changeme")
     verify_certs: bool = Field(default=True)
-    request_timeout_s: int = Field(default=20)
+    request_timeout_s: int = Field(default=45)
     max_retries: int = Field(default=2)
     retry_on_timeout: bool = Field(default=True)
     circuit_breaker_failures: int = Field(default=5)

@@ -16,3 +16,6 @@ build/
 .idea/
 .vscode/
 node_modules/
+
+# Large log files
+Journal.log.txt
