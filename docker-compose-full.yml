@@ -1,0 +1,184 @@
+version: "3.8"
+
+services:
+  # ─── Elasticsearch ───
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: infra-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - cluster.name=infra-cluster
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  # ─── Kibana ───
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: infra-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: always
+
+  # ─── Logstash (receives Prometheus remote_write + Filebeat + Fluent Bit) ───
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.15.3
+    container_name: infra-logstash
+    volumes:
+      - ./config/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./config/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    ports:
+      - "5044:5044"     # Beats input
+      - "9600:9600"     # Logstash monitoring API
+      - "8080:8080"     # HTTP input for Prometheus remote_write
+      - "5140:5140"     # Syslog input
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: always
+
+  # ─── Prometheus ───
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: infra-prometheus
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-remote-write-receiver'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - logstash
+    restart: always
+
+  # ─── Alertmanager ───
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: infra-alertmanager
+    volumes:
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    restart: always
+
+  # ─── Grafana ───
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: infra-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - elasticsearch
+    restart: always
+
+  # ─── Node Exporter (host metrics) ───
+  node-exporter:
+    image: prom/node-exporter:v1.8.0
+    container_name: infra-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: always
+
+  # ─── Blackbox Exporter (HTTP/ICMP probes) ───
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: infra-blackbox-exporter
+    volumes:
+      - ./config/blackbox/blackbox.yml:/config/blackbox.yml:ro
+    ports:
+      - "9115:9115"
+    command:
+      - '--config.file=/config/blackbox.yml'
+    restart: always
+
+  # ─── Filebeat (log collection) ───
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.3
+    container_name: infra-filebeat
+    user: root
+    volumes:
+      - ./config/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - logstash
+    restart: always
+
+  # ─── Redis (caching) ───
+  redis:
+    image: redis:7-alpine
+    container_name: infra-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+
+  # ─── Infrastructure RAG Agent ───
+  infra-rag:
+    build: .
+    container_name: infra-rag-app
+    ports:
+      - "8123:8000"
+    env_file:
+      - .env
+    environment:
+      - ELASTICSEARCH__HOST=http://elasticsearch:9200
+      - ELASTICSEARCH__VERIFY_CERTS=false
+      - REDIS__HOST=redis
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+    command: ["uvicorn", "infra_rag.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  es-data:
+  prometheus-data:
+  grafana-data:
+  redis-data:

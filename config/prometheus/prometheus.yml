@@ -1,0 +1,95 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Send all metrics to Logstash → Elasticsearch
+remote_write:
+  - url: "http://logstash:8080"
+    write_relabel_configs:
+      # Drop high-cardinality metrics to reduce ES storage
+      - source_labels: [__name__]
+        regex: "go_.*|promhttp_.*"
+        action: drop
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Node Exporter (host metrics: CPU, memory, disk, network)
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: "([^:]+):.*"
+        replacement: "$1"
+
+  # Blackbox Exporter (HTTP probes)
+  - job_name: "blackbox-http"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://infra-rag-app:8000/health
+          - http://kibana:5601
+          - http://grafana:3000
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Blackbox Exporter (ICMP probes)
+  - job_name: "blackbox-icmp"
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    static_configs:
+      - targets:
+          - elasticsearch
+          - redis
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Docker container metrics (if cAdvisor is added)
+  # - job_name: "cadvisor"
+  #   static_configs:
+  #     - targets: ["cadvisor:8080"]
+
+  # ─── Add your infrastructure targets below ───
+  # SNMP Exporter
+  # - job_name: "snmp"
+  #   static_configs:
+  #     - targets: ["switch01.example.com", "router01.example.com"]
+  #   metrics_path: /snmp
+  #   params:
+  #     module: [if_mib]
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - target_label: __address__
+  #       replacement: snmp-exporter:9116
+
+  # Application metrics (if your apps expose /metrics)
+  # - job_name: "app-metrics"
+  #   static_configs:
+  #     - targets: ["app1:8080", "app2:8080"]

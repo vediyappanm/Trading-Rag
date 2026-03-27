@@ -26,4 +26,4 @@ COPY . .
 EXPOSE 8000
 
 # Set entrypoint to run the application
-CMD ["uvicorn", "trading_rag.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uvicorn", "infra_rag.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

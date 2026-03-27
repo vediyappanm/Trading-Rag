@@ -1,0 +1,47 @@
+filebeat.inputs:
+  # System logs
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/syslog
+      - /var/log/auth.log
+      - /var/log/messages
+    fields:
+      log_type: system
+    fields_under_root: false
+
+  # Application logs (JSON format)
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/app/*.log
+      - /var/log/app/**/*.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    fields:
+      log_type: application
+    fields_under_root: false
+
+  # Docker container logs
+  - type: container
+    enabled: true
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+
+logging.level: warning
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 3

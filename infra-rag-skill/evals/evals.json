@@ -1,0 +1,66 @@
+{
+  "skill_name": "infra-rag",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "What is the CPU usage right now on all hosts?",
+      "expected_output": "Returns live CPU percentages per host from Prometheus, includes Grafana Explore link",
+      "files": [],
+      "expectations": [
+        "Response includes CPU percentage values per host/instance",
+        "Data source is identified as Prometheus (live)",
+        "A Grafana Explore link or deep-link is included",
+        "The query was routed through prometheus_live path"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Show me all error logs from the last hour",
+      "expected_output": "Returns ERROR/FATAL log entries from Elasticsearch with service names and timestamps",
+      "files": [],
+      "expectations": [
+        "Response includes log entries with ERROR or FATAL level",
+        "Each log entry has a timestamp and service/host source",
+        "Data was retrieved from Elasticsearch (infra-logs index)",
+        "The query was routed through log_search path"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "What alerts are currently firing?",
+      "expected_output": "Returns active Prometheus alerts with severity, instance, and description",
+      "files": [],
+      "expectations": [
+        "Response lists firing alerts with alertname and severity",
+        "Each alert includes the affected instance",
+        "Data source is Prometheus alerts API (not ES historical)",
+        "The query was routed through prometheus_live or alert_search path"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Show me the Grafana dashboard for web-01",
+      "expected_output": "Returns Grafana dashboard links with var-host=web-01 substitution",
+      "files": [],
+      "expectations": [
+        "Response includes clickable Grafana dashboard URLs",
+        "Dashboard URLs include var-host=web-01 parameter",
+        "Panel titles and types are listed for relevant dashboards",
+        "The query was routed through grafana_dashboard path"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Why is the API server down?",
+      "expected_output": "Cross-domain investigation combining Prometheus up status, ES error logs, and ES alerts",
+      "files": [],
+      "expectations": [
+        "Response combines data from multiple sources (Prometheus + ES)",
+        "Live metric status (up/down) is included",
+        "Recent error logs related to the API server are shown",
+        "Recent alerts for the API server are shown if any",
+        "Data source is identified as multi (prometheus + elasticsearch)"
+      ]
+    }
+  ]
+}

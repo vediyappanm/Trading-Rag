@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest src/trading_rag/tests/test_router.py -v)",
+      "Bash(python -m pytest src/trading_rag/tests/ -v --ignore=src/trading_rag/tests/test_e2e_accuracy.py)",
+      "Bash(python3 -c \"import paramiko; print\\(''ok''\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python3 -c \"import paramiko; print\\(''''ok''''\\)\")",
+      "Bash(pip3 install:*)",
+      "Bash(py -m pip install paramiko)",
+      "Bash(py -c \"import paramiko; print\\(''''ok''''\\)\")",
+      "Bash(py -:*)",
+      "Read(//c/Users/ELCOT/OneDrive/Desktop/Rag/**)",
+      "Bash(find /c/Users/ELCOT/OneDrive/Desktop/Rag -type f -name *trading*)",
+      "Bash(ls -la /c/Users/ELCOT/OneDrive/Desktop/Rag/*.md)",
+      "Bash(grep -r trading /c/Users/ELCOT/OneDrive/Desktop/Rag/*.md)",
+      "Bash(grep -l \"trading\\\\|execution\\\\|feed\\\\|symbol\" /c/Users/ELCOT/OneDrive/Desktop/Rag/*.yml)",
+      "Bash(find /c/Users/ELCOT/OneDrive/Desktop/Rag/src -type f -name *.py)",
+      "Bash(grep -l \"trading\\\\|execution\\\\|feed\\\\|symbol.*AAPL\\\\|symbol.*GOOGL\" /c/Users/ELCOT/OneDrive/Desktop/Rag/src/trading_rag/*.py)",
+      "Bash(grep -n \"execution_logs_index\\\\|feed_logs_index\\\\|incidents_index\\\\|symbol.*AAPL\\\\|symbol.*GOOGL\" /c/Users/ELCOT/OneDrive/Desktop/Rag/src/trading_rag/**/*.py)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"execution_logs_index\\\\|feed_logs_index\\\\|incidents_index\" /c/Users/ELCOT/OneDrive/Desktop/Rag/src --include=*.py)",
+      "Bash(grep -l \"trading\\\\|execution\\\\|feed\\\\|symbol\\\\|AAPL\\\\|GOOGL\" /c/Users/ELCOT/OneDrive/Desktop/Rag/src/trading_rag/tests/*.py)",
+      "Bash(grep -n \"retrieve_execution_logs\\\\|retrieve_feed_logs\\\\|retrieve_incidents\\\\|execution_logs_index\\\\|feed_logs_index\" /c/Users/ELCOT/OneDrive/Desktop/Rag/src/trading_rag/retrieval/*.py)",
+      "Bash(python3 -c \"from src.trading_rag.retrieval.services import retrieve_execution_logs\")",
+      "Bash(grep -r \"retrieve_execution_logs\\\\|retrieve_feed_logs\\\\|retrieve_incidents\" /c/Users/ELCOT/OneDrive/Desktop/Rag --include=*.py)",
+      "Bash(find src/ -name \"*.py\" -exec sed -i 's/trading_rag/infra_rag/g' {} +)",
+      "Bash(python -c \"import infra_rag; print\\(''OK''\\)\")",
+      "Bash(python -m uvicorn infra_rag.main:app --host 0.0.0.0 --port 8000 --reload)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl -s http://localhost:8000/health/ready)",
+      "Bash(python infra-rag-skill/scripts/test_routing.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python infra-rag-skill/scripts/test_routing.py)",
+      "Bash(python -c \"from infra_rag.main import app; print\\(''OK''\\)\")",
+      "Bash(wc -l /c/Users/ELCOT/OneDrive/Desktop/Rag/src/infra_rag/*.py)",
+      "Bash(find /c/Users/ELCOT/OneDrive/Desktop/Rag/src/infra_rag -type f -name \"*.py\" -exec wc -l {} +)",
+      "Bash(grep \"\\\\.py$\")"
+    ]
+  }
+}

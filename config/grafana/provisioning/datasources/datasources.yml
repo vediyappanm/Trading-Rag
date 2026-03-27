@@ -1,0 +1,43 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+  - name: Elasticsearch - Metrics
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "infra-metrics-*"
+    jsonData:
+      esVersion: "8.15.0"
+      timeField: "@timestamp"
+      logMessageField: message
+      logLevelField: log.level
+    editable: true
+
+  - name: Elasticsearch - Logs
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "infra-logs-*"
+    jsonData:
+      esVersion: "8.15.0"
+      timeField: "@timestamp"
+      logMessageField: message
+      logLevelField: log.level
+    editable: true
+
+  - name: Elasticsearch - Alerts
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "infra-alerts-*"
+    jsonData:
+      esVersion: "8.15.0"
+      timeField: "@timestamp"
+    editable: true
